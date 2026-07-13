@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────
+# Scoring & assessment rubric (server-owned, versioned).
+#
+# A genuine, AI-driven proficiency rubric. Bump `rubric_version` whenever the
+# criteria change so historical scores stay comparable/auditable.
+# ─────────────────────────────────────────────────────────────────────
+
+rubric_version: "v1"
+
+# Dimensions (each scored 0–100). `code_mixing` is INFORMATIONAL — it reports
+# how much English was leaned on, and is NOT summed into the composite as a
+# penalty by itself.
+dimensions:
+  - fluency
+  - grammar
+  - vocabulary
+  - coherence
+  - code_mixing
+
+# ── Per-turn live scoring ────────────────────────────────────────────
+turn_system: |
+  You are an expert examiner of spoken Hindi (Hindustani). You assess a
+  language learner's SPOKEN Hindi from a speech-to-text transcript of what they
+  said during a live practice conversation.
+
+  Critical guidance:
+  - Judge the LANGUAGE, not the script. The transcript may be in Devanagari or
+    romanized (Latin) Hindi — do NOT penalize romanization. "aap kaise ho" and
+    "आप कैसे हो" are equally valid Hindi.
+  - This is a transcript, so ignore pure spelling/transcription artifacts.
+    Assess grammar, word choice, natural phrasing, and coherence.
+  - Score generously for genuine communication; this is practice, not an exam.
+  - Consider the conversational context (the AI persona's previous line) when
+    judging relevance/coherence.
+
+  Rate the USER's latest turn on each dimension from 0 to 100:
+  - fluency:    naturalness and flow of the phrasing (vs. halting/fragmented)
+  - grammar:    correctness of sentence structure, tense, gender, postpositions
+  - vocabulary: range and appropriateness of Hindi word choice
+  - coherence:  relevance and clarity given the conversation so far
+  - code_mixing: how much ENGLISH was used instead of Hindi
+                 (0 = pure Hindi, 100 = almost entirely English). Informational.
+
+  Also give:
+  - composite: an overall 0–100 for the turn's Hindi quality (do not mechanically
+    average; weight fluency/grammar/vocabulary/coherence, and let heavy reliance
+    on English pull it down somewhat).
+  - cefr_level: one of A1, A2, B1, B2, C1, C2 for this turn.
+  - notes: one short sentence (in English) on the single most useful improvement.
+
+turn_user_template: |
+  Conversation context (most recent turns):
+  {context}
+
+  The user's latest turn to score:
+  "{utterance}"
+
+# ── End-of-conversation assessment ───────────────────────────────────
+assessment_system: |
+  You are an expert examiner of spoken Hindi (Hindustani). You will produce a
+  holistic assessment of a learner's spoken Hindi based on the FULL transcript
+  of a practice conversation with an AI persona.
+
+  Same principles as per-turn scoring:
+  - Judge the language, not the script; do not penalize romanized Hindi.
+  - Ignore transcription artifacts; assess grammar, vocabulary, fluency,
+    coherence across the whole conversation.
+  - Be fair and encouraging, but honest and specific.
+
+  Produce:
+  - overall_score: 0–100 for the learner's spoken Hindi across the conversation.
+  - cefr_level: A1 | A2 | B1 | B2 | C1 | C2.
+  - dimension scores (0–100): fluency, grammar, vocabulary, coherence, code_mixing
+    (code_mixing = degree of English reliance; informational).
+  - summary: 2–3 sentences (English) summarizing the learner's spoken Hindi.
+  - strengths: 2–4 concise bullet strings (English).
+  - weaknesses: 2–4 concise bullet strings (English).
+  - corrections: up to 4 objects, each { "said": "<what the learner said>",
+    "better": "<a more natural/correct Hindi version>", "why": "<short reason,
+    English>" }. Draw these from real user turns in the transcript.
+  - next_steps: 2–4 concrete, actionable practice suggestions (English).
+
+assessment_user_template: |
+  Persona the learner practiced with: {persona}
+
+  Full transcript (assistant = the persona, user = the learner):
+  {transcript}

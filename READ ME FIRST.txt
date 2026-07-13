@@ -1,0 +1,90 @@
+============================================================
+  HINDI MITRA  -  How to run it
+============================================================
+
+Hindi Mitra is a Hindi speaking-practice app. Employees talk to
+an AI in Hindi and get scored; admins manage people and view
+results. Everything runs on THIS computer in your web browser.
+
+
+------------------------------------------------------------
+  STEP 1 - Install two free programs (one time only)
+------------------------------------------------------------
+
+You only need to do this once.
+
+  1) Python  (version 3.12 or newer)
+       Download: https://www.python.org/downloads/
+       IMPORTANT: on the first install screen, tick the box
+       "Add python.exe to PATH" before clicking Install.
+
+  2) Node.js  (the "LTS" version)
+       Download: https://nodejs.org/
+       Just click through with the default options.
+
+You also need an internet connection the FIRST time you run
+the app (it downloads a few components). After that it works
+without internet.
+
+
+------------------------------------------------------------
+  STEP 2 - Start the app
+------------------------------------------------------------
+
+  Double-click the file named:   run.bat
+
+  - The first time, it will spend a few minutes getting ready.
+    Please leave it running and wait.
+  - After that, it opens the app in your web browser
+    automatically at:   http://localhost:5173
+  - If the browser page says "cannot connect", wait a few
+    seconds and refresh it - the app is still starting.
+
+Two small black windows will open (labelled "API" and "Web").
+Keep them open while you use the app.
+
+
+------------------------------------------------------------
+  STEP 3 - Log in
+------------------------------------------------------------
+
+  ADMIN  (manage employees, view assessments)
+     Choose "Admin Login" and enter the admin password.
+     Default password:  admin
+     (Whoever prepared this for you may have changed it.)
+
+  EMPLOYEE  (practice and get scored)
+     Choose "Employee Login". First time, click
+     "Register new employee" to create your name + password,
+     then sign in.
+
+For the speaking practice, allow the microphone when the
+browser asks. You can also just type your replies.
+
+
+------------------------------------------------------------
+  TO STOP THE APP
+------------------------------------------------------------
+
+  Close the two small black windows ("API" and "Web").
+
+
+------------------------------------------------------------
+  IF SOMETHING GOES WRONG
+------------------------------------------------------------
+
+  - "Python was not found" / "Node.js was not found":
+        Go back to STEP 1 and install the missing one. For
+        Python, make sure you ticked "Add python.exe to PATH".
+
+  - It got stuck or a window shows a red error:
+        Close all the windows and double-click run.bat again.
+
+  - Browser shows "cannot connect":
+        Wait ~10 seconds and refresh the page.
+
+  - Still stuck:
+        Send a photo of the error window to whoever gave you
+        this app.
+
+============================================================

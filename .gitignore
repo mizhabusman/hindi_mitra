@@ -1,0 +1,24 @@
+# ── Secrets / environment (NEVER commit) ───────────────────────────
+.env
+.env.local
+backend/.env
+
+# ── Python ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ── Node / frontend ─────────────────────────────────────────────────
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ── Local databases (dev/test) ──────────────────────────────────────
+*.db
+
+# ── OS / editor cruft ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
