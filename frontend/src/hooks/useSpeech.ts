@@ -24,6 +24,35 @@ const NO_SPEECH_TIMEOUT_MS = 8000;
 
 type VoiceCfg = { rate?: number; pitch?: number; prefer?: string } | null;
 
+// ── Browser voice selection ──────────────────────────────────────────
+// Browsers (especially Windows/Chrome) expose a small, inconsistent set of
+// Hindi voices — sometimes only one. We pick a voice that matches the persona's
+// gender when one exists (preferring higher-quality "natural" voices), and
+// otherwise shift the pitch so male and female personas still sound clearly
+// different even on a single shared voice.
+const FEMALE_VOICE_HINTS = ["swara", "kalpana", "heera", "neerja", "aditi", "aarohi", "ananya", "female", "woman"];
+const MALE_VOICE_HINTS = ["madhur", "hemant", "ravi", "kabir", "prabhat", "arjun", "male"];
+
+function voiceGender(name: string): "female" | "male" | null {
+  const n = name.toLowerCase();
+  if (FEMALE_VOICE_HINTS.some((h) => n.includes(h))) return "female"; // check female first ("female" contains "male")
+  if (MALE_VOICE_HINTS.some((h) => n.includes(h))) return "male";
+  return null;
+}
+
+function pickHindiVoice(
+  all: SpeechSynthesisVoice[],
+  prefer?: string
+): { voice: SpeechSynthesisVoice | null; genderMatched: boolean } {
+  const hindi = all.filter((v) => v.lang && v.lang.toLowerCase().startsWith("hi"));
+  if (!hindi.length) return { voice: all[0] ?? null, genderMatched: false };
+  const quality = (v: SpeechSynthesisVoice) => (/natural|neural|online/i.test(v.name) ? 1 : 0);
+  const best = (list: SpeechSynthesisVoice[]) => [...list].sort((a, b) => quality(b) - quality(a))[0];
+  const matches = prefer ? hindi.filter((v) => voiceGender(v.name) === prefer) : [];
+  if (matches.length) return { voice: best(matches), genderMatched: true };
+  return { voice: best(hindi), genderMatched: false };
+}
+
 export function useSpeech() {
   const recogRef = useRef<any>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -173,16 +202,17 @@ export function useSpeech() {
         synth.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = "hi-IN";
-        const hindi = voices.filter((v) => v.lang && v.lang.startsWith("hi"));
-        const prefer = cfg?.prefer;
-        const femaleHints = ["female", "swara", "kalpana", "heera", "woman", "neerja", "aditi"];
-        const maleHints = ["male", "hemant", "madhur", "man", "ravi", "kabir"];
-        const hints = prefer === "female" ? femaleHints : prefer === "male" ? maleHints : [];
-        const match = hindi.find((v) => hints.some((h) => v.name.toLowerCase().includes(h)));
-        const chosen = match || hindi[0];
-        if (chosen) u.voice = chosen;
+        // Voices can load asynchronously; read the freshest list available.
+        const available = voices.length ? voices : synth.getVoices();
+        const { voice, genderMatched } = pickHindiVoice(available, cfg?.prefer);
+        if (voice) u.voice = voice;
         u.rate = cfg?.rate ?? 1;
-        u.pitch = cfg?.pitch ?? 1;
+        let pitch = cfg?.pitch ?? 1;
+        // No voice actually matched the requested gender (e.g. only one Hindi
+        // voice is installed) — nudge pitch so male vs female stays distinct.
+        if (!genderMatched && cfg?.prefer === "female") pitch = Math.max(pitch, 1.25);
+        if (!genderMatched && cfg?.prefer === "male") pitch = Math.min(pitch, 0.8);
+        u.pitch = pitch;
         u.onend = () => resolve();
         u.onerror = () => resolve();
         synth.speak(u);

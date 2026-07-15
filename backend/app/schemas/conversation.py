@@ -18,6 +18,10 @@ class TurnRequest(BaseModel):
     text: str = Field(..., min_length=1)
     # Optional 0–100 pronunciation score from Azure Speech (client-measured).
     pronunciation: float | None = Field(None, ge=0, le=100)
+    # When false, the live scoring + AI-coach call is skipped entirely for this
+    # turn (no per-turn Claude cost). The end-of-conversation assessment is
+    # unaffected. Defaults to on.
+    live_coach: bool = True
 
 
 class MessageOut(BaseModel):

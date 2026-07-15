@@ -18,7 +18,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.timeutil import ensure_utc
 from app.db.models import (
+    Assessment,
     Conversation,
     ConversationStatus,
     Message,
@@ -162,7 +164,76 @@ async def record_assistant_message(
     return msg
 
 
+async def resume_conversation(db: AsyncSession, conversation: Conversation) -> None:
+    """Re-open a just-ended conversation so the user can keep going in the SAME
+    conversation (in-session "Continue"). Any prior assessment is discarded so
+    the next one is generated over the whole extended transcript (one combined
+    report)."""
+    conversation.status = ConversationStatus.active
+    conversation.ended_at = None
+    existing = await db.execute(
+        select(Assessment).where(Assessment.conversation_id == conversation.id)
+    )
+    old = existing.scalar_one_or_none()
+    if old is not None:
+        await db.delete(old)
+    await db.commit()
+
+
+async def _user_turn_count(db: AsyncSession, conversation_id: int) -> int:
+    result = await db.execute(
+        select(func.count(Message.id)).where(
+            Message.conversation_id == conversation_id,
+            Message.role == MessageRole.user,
+        )
+    )
+    return int(result.scalar_one())
+
+
 async def end_conversation(db: AsyncSession, conversation: Conversation) -> None:
+    # A conversation only counts once the user has actually spoken. If they left
+    # after just the AI opener, drop it entirely rather than record an empty one.
+    if await _user_turn_count(db, conversation.id) == 0:
+        await db.delete(conversation)  # cascade removes the opener
+        await db.commit()
+        return
     conversation.status = ConversationStatus.ended
     conversation.ended_at = _now()
     await db.commit()
+
+
+async def abandon_stale(db: AsyncSession, idle_minutes: int = 30) -> int:
+    """Close conversations left 'active' after the user walked away.
+
+    A conversation only becomes 'ended' when the user explicitly ends it, so
+    sessions where they closed the tab or navigated away linger as 'active'.
+    This marks any active conversation with no message in the last
+    `idle_minutes` as 'abandoned', stamping ended_at with the last activity so
+    practice-time metrics stay accurate (and never inflated). Returns the count.
+    """
+    cutoff = _now() - dt.timedelta(minutes=idle_minutes)
+    result = await db.execute(
+        select(Conversation).where(Conversation.status == ConversationStatus.active)
+    )
+    closed = 0
+    removed = 0
+    for convo in result.scalars().all():
+        last_row = await db.execute(
+            select(func.max(Message.created_at)).where(Message.conversation_id == convo.id)
+        )
+        last = last_row.scalar_one_or_none() or convo.started_at
+        last_utc = ensure_utc(last)
+        if last_utc is None or last_utc >= cutoff:
+            continue
+        # Stale. Drop it if the user never replied (only the opener); otherwise
+        # mark it abandoned so its practice time still counts.
+        if await _user_turn_count(db, convo.id) == 0:
+            await db.delete(convo)
+            removed += 1
+        else:
+            convo.status = ConversationStatus.abandoned
+            convo.ended_at = last
+            closed += 1
+    if closed or removed:
+        await db.commit()
+    return closed

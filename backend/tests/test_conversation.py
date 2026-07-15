@@ -1,9 +1,11 @@
 import json
 
 
-def _stream_turn(client, cid, text):
+def _stream_turn(client, cid, text, live_coach=True):
     deltas, done, score = [], None, None
-    with client.stream("POST", f"/api/conversations/{cid}/turns", json={"text": text}) as resp:
+    with client.stream(
+        "POST", f"/api/conversations/{cid}/turns", json={"text": text, "live_coach": live_coach}
+    ) as resp:
         assert resp.status_code == 200
         for line in resp.iter_lines():
             if not line or not line.startswith("data: "):
@@ -44,10 +46,23 @@ def test_turn_streams_scores_and_persists(admin_client):
     assert done["usage"]["output_tokens"] > 0
     assert score["live_score"] is not None
     assert 0 <= score["turn"]["composite"] <= 100
+    # AI Hindi Coach feedback rides along on the same score event.
+    coach = score["coach"]
+    assert coach["heading"] and coach["assessment"]
+    assert coach["current_reply"] == "नमस्ते जी, मैं आज कुछ नया सीखना चाहता हूँ।"
 
     detail = admin_client.get(f"/api/conversations/{cid}").json()
     roles = [m["role"] for m in detail["messages"]]
     assert roles == ["assistant", "user", "assistant"]
+
+
+def test_live_coach_off_skips_scoring(admin_client):
+    # With the live coach toggled off, the reply still streams but NO scoring /
+    # coach event is emitted (no per-turn AI cost).
+    cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    reply, done, score = _stream_turn(admin_client, cid, "मुझे संगीत पसंद है।", live_coach=False)
+    assert reply and done
+    assert score is None
 
 
 def test_message_length_limit(admin_client):
@@ -58,9 +73,18 @@ def test_message_length_limit(admin_client):
 
 def test_ended_conversation_rejects_turns(admin_client):
     cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    _stream_turn(admin_client, cid, "मुझे पढ़ाई पसंद है।")  # a real turn so the convo persists on end
     assert admin_client.post(f"/api/conversations/{cid}/end").status_code == 204
     with admin_client.stream("POST", f"/api/conversations/{cid}/turns", json={"text": "और?"}) as resp:
         assert resp.status_code == 409
+
+
+def test_empty_conversation_not_counted(admin_client):
+    # Start a conversation but never reply, then leave (end). It must be dropped
+    # entirely — not recorded or counted (issue #6).
+    cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    assert admin_client.post(f"/api/conversations/{cid}/end").status_code == 204
+    assert admin_client.get(f"/api/conversations/{cid}").status_code == 404
 
 
 def test_assessment_generation(admin_client):
@@ -74,3 +98,38 @@ def test_assessment_generation(admin_client):
     assert a["strengths"] and a["next_steps"]
     # fetch stored
     assert admin_client.get(f"/api/conversations/{cid}/assessment").json()["overall_score"] == a["overall_score"]
+
+
+def test_assessment_is_idempotent(admin_client):
+    # POSTing again must return the SAME stored assessment, not regenerate a new
+    # one — a conversation has exactly one report (generate once, view forever).
+    cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    _stream_turn(admin_client, cid, "मुझे इतिहास बहुत पसंद है।")
+    first = admin_client.post(f"/api/conversations/{cid}/assessment").json()
+    second = admin_client.post(f"/api/conversations/{cid}/assessment").json()
+    # Byte-identical, including created_at — a regenerate would stamp a new row.
+    assert first == second
+
+
+def test_resume_conversation_extends_same_row(admin_client):
+    # Start + a real turn + end, generate an assessment, then resume BY ID: it
+    # reuses the SAME conversation and clears the old assessment so the next one
+    # is combined over the whole (extended) transcript.
+    cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    _stream_turn(admin_client, cid, "मुझे विज्ञान अच्छा लगता है।")
+    admin_client.post(f"/api/conversations/{cid}/end")
+    admin_client.post(f"/api/conversations/{cid}/assessment")
+    assert admin_client.get(f"/api/conversations/{cid}/assessment").status_code == 200
+
+    r = admin_client.post(f"/api/conversations/{cid}/resume")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["conversation"]["id"] == cid                 # same conversation
+    assert body["conversation"]["status"] == "active"        # reactivated
+    assert any(m["role"] == "user" for m in body["messages"])  # history preserved
+    # the prior assessment was discarded so the next one covers everything
+    assert admin_client.get(f"/api/conversations/{cid}/assessment").status_code == 404
+
+
+def test_resume_unknown_conversation_404(admin_client):
+    assert admin_client.post("/api/conversations/999999/resume").status_code == 404

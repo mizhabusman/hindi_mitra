@@ -78,11 +78,19 @@ def _stub_claude(monkeypatch):
                 "next_steps": ["Practice past-tense gender", "Expand vocabulary"],
             }
             return data, claude_client.Usage(400, 120)
-        # turn score
+        # turn score (+ AI Hindi Coach feedback)
         data = {
             "fluency": 70, "grammar": 65, "vocabulary": 68, "coherence": 72,
             "code_mixing": 15, "composite": 69.0, "cefr_level": "B1",
-            "notes": "Nice — try a longer sentence next time.",
+            "coach": {
+                "heading": "Good Attempt",
+                "assessment": "Clear and understandable Hindi with a natural flow.",
+                "is_correct": True,
+                "suggested_reply": "",
+                "why_better": "",
+                "alternative": "",
+                "vocab": [],
+            },
         }
         return data, claude_client.Usage(60, 20)
 

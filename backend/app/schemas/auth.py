@@ -20,11 +20,6 @@ class EmployeeLoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=200)
 
 
-class RegisterEmployeeRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=150)
-    password: str = Field(..., min_length=6, max_length=200)
-
-
 class EmployeeOption(BaseModel):
     id: int
     name: str

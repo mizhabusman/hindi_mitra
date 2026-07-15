@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft, Briefcase, Car, GraduationCap, Heart, Lightbulb, LogOut, MessageCircle,
-  Mic, Play, Send, Smile, Square, Stethoscope, Store, User, X,
+  Activity, ArrowLeft, Briefcase, Car, GraduationCap, Heart, History, LogOut, MessageCircle,
+  Mic, Play, Send, Smile, Sparkles, Square, Stethoscope, Store, User, X,
 } from "lucide-react";
 import { api, streamTurn } from "../api";
 import { useAuth } from "../auth";
 import { useSpeech } from "../hooks/useSpeech";
 import Brand from "../components/Brand";
-import UserBadge from "../components/UserBadge";
-import type { Assessment, Message, Persona, TurnScore } from "../types";
+import type { Assessment, Coach, Message, Persona, TurnScore } from "../types";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
 const PHASE_LABEL: Record<Phase, string> = {
@@ -50,6 +49,11 @@ export default function Practice() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [mode, setMode] = useState<string>("");
   const [active, setActive] = useState(false);
+  // A conversation was just ended this session and is still on screen — the ONLY
+  // moment "Continue previous" is offered. Cleared the instant the user moves on
+  // (start new / switch persona / leave), after which it's a finalized record.
+  const [ended, setEnded] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -58,11 +62,19 @@ export default function Practice() {
   const [draft, setDraft] = useState("");
   const [live, setLive] = useState<{ score: number | null; level: string | null }>({ score: null, level: null });
   const [lastTurn, setLastTurn] = useState<TurnScore | null>(null);
+  const [coach, setCoach] = useState<Coach | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  // Live coach on/off — remembered across sessions. Off skips the per-turn AI
+  // call entirely (no cost); the end-of-conversation assessment is unaffected.
+  const [liveCoach, setLiveCoach] = useState(() => localStorage.getItem("hb_live_coach") !== "off");
   const [apiError, setApiError] = useState("");
   const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [showAssessment, setShowAssessment] = useState(false);
   const [assessing, setAssessing] = useState(false);
 
   const runningRef = useRef(false);
+  const liveCoachRef = useRef(liveCoach);
+  liveCoachRef.current = liveCoach;
   const processingRef = useRef(false);
   const emptyRef = useRef(0);
   const cidRef = useRef<number | null>(null);
@@ -80,8 +92,30 @@ export default function Practice() {
     });
   }, []);
   useEffect(() => {
+    localStorage.setItem("hb_live_coach", liveCoach ? "on" : "off");
+    if (!liveCoach) setAnalyzing(false);
+  }, [liveCoach]);
+  useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, streaming, interim, phase]);
+
+  // End the conversation if the user closes the tab or navigates away without
+  // pressing "End" — otherwise it lingers forever as an "active" session.
+  useEffect(() => {
+    const endActive = () => {
+      const id = cidRef.current;
+      if (!runningRef.current || !id) return;
+      runningRef.current = false;
+      const url = `/api/conversations/${id}/end`;
+      if (navigator.sendBeacon) navigator.sendBeacon(url);
+      else fetch(url, { method: "POST", credentials: "include", keepalive: true }).catch(() => {});
+    };
+    window.addEventListener("pagehide", endActive);
+    return () => {
+      window.removeEventListener("pagehide", endActive);
+      endActive();  // covers in-app navigation away from the practice screen
+    };
+  }, []);
 
   const persona = personas.find((p) => p.key === mode) || null;
   personaRef.current = persona;
@@ -123,6 +157,13 @@ export default function Practice() {
     setApiError("");
     setMessages((m) => [...m, { id: -Date.now(), turn_index: -1, role: "user", content: text }]);
     setPhase("thinking");
+    // Fresh coaching for THIS reply — clear the previous card and show analyzing
+    // (only when the live coach is on; otherwise no per-turn AI call happens).
+    const useCoach = liveCoachRef.current;
+    if (useCoach) {
+      setCoach(null);
+      setAnalyzing(true);
+    }
 
     let full = "";
     let spokenIdx = 0;
@@ -148,28 +189,55 @@ export default function Practice() {
         {
           onDelta: (t) => { full += t; setStreaming(full); flush(false); },
           onDone: (msg) => { setStreaming(""); setMessages((m) => [...m, msg]); },
-          onScore: (s) => { setLive({ score: s.live_score, level: s.live_level }); setLastTurn(s.turn as TurnScore); },
+          onScore: (s) => {
+            setLive({ score: s.live_score, level: s.live_level });
+            setLastTurn(s.turn as TurnScore);
+            if (s.coach) setCoach(s.coach);
+            setAnalyzing(false);
+          },
           onError: (d) => setApiError(d),
         },
-        pronunciation
+        pronunciation,
+        useCoach
       );
     } catch (e) {
       setApiError((e as Error).message);
     }
     flush(true);
     await chain;
+    setAnalyzing(false);  // fallback: clear the analyzing state even if scoring failed
     processingRef.current = false;
     setBusy(false);
     armMic();
   }
 
-  async function start() {
-    if (!mode) return;
-    setApiError("");
+  // Wipe the on-screen conversation back to a clean slate (used when the user
+  // moves on from a just-ended conversation — start new / switch persona).
+  function clearConversation() {
+    setEnded(false);
+    setMessages([]);
+    cidRef.current = null;
     setAssessment(null);
+    setShowAssessment(false);
+    setLive({ score: null, level: null });
+    setLastTurn(null);
+    setCoach(null);
+    setAnalyzing(false);
+    setDraft("");
+  }
+
+  async function start() {
+    if (!mode || starting) return;  // guard against double-click double-start
+    setStarting(true);
+    setApiError("");
+    setEnded(false);
+    setAssessment(null);
+    setShowAssessment(false);
     setMessages([]);
     setLive({ score: null, level: null });
     setLastTurn(null);
+    setCoach(null);
+    setAnalyzing(false);
     setDraft("");
     emptyRef.current = 0;
     processingRef.current = false;
@@ -179,11 +247,46 @@ export default function Practice() {
       cidRef.current = conversation.id;
       setMessages([opener]);
       setActive(true);
+      setStarting(false);
       setPhase("speaking");
       await speak(opener.content, personaRef.current?.voice_config || null);
       armMic();
     } catch (e) {
       runningRef.current = false;
+      setStarting(false);
+      setPhase("idle");
+      setApiError((e as Error).message);
+    }
+  }
+
+  // Continue the just-ended conversation (same conversation row). Only reachable
+  // while `ended` is true — i.e. still on that conversation's screen.
+  async function continuePrev() {
+    if (!cidRef.current || starting) return;
+    setStarting(true);
+    setApiError("");
+    setAssessment(null);   // the old report is discarded server-side on resume
+    setShowAssessment(false);
+    setLastTurn(null);
+    setCoach(null);
+    setAnalyzing(false);
+    setDraft("");
+    emptyRef.current = 0;
+    processingRef.current = false;
+    runningRef.current = true;
+    try {
+      const { conversation, messages } = await api.resumeConversation(cidRef.current);
+      cidRef.current = conversation.id;
+      setMessages(messages);
+      setLive({ score: conversation.live_score, level: conversation.live_level });
+      setEnded(false);
+      setActive(true);
+      setStarting(false);
+      setPhase("idle");  // no new opener — pick up where the conversation left off
+      armMic();
+    } catch (e) {
+      runningRef.current = false;
+      setStarting(false);
       setPhase("idle");
       setApiError((e as Error).message);
     }
@@ -205,17 +308,28 @@ export default function Practice() {
     setActive(false);
     setBusy(false);
     setPhase("idle");
+    const hadUserTurn = messages.some((m) => m.role === "user");
     if (cidRef.current) {
       try { await api.endConversation(cidRef.current); } catch { /* ignore */ }
     }
+    if (hadUserTurn) {
+      // Saved as one conversation; stay on it so the user can Continue or assess.
+      setEnded(true);
+    } else {
+      // No user reply → the backend dropped it; nothing to keep on screen.
+      clearConversation();
+    }
   }
 
-  async function getAssessment() {
-    if (!cidRef.current) return;
+  // Generate the assessment once, then cache it. Re-opening only shows the
+  // cached report — it never regenerates (no extra cost, no score drift).
+  async function generateAssessment() {
+    if (!cidRef.current || assessing) return;
     setAssessing(true);
     setApiError("");
     try {
       setAssessment(await api.createAssessment(cidRef.current));
+      setShowAssessment(true);
     } catch (e) {
       setApiError((e as Error).message);
     } finally {
@@ -223,7 +337,11 @@ export default function Practice() {
     }
   }
 
-  const hasUserTurns = messages.some((m) => m.role === "user");
+  function openAssessment() {
+    if (assessment) setShowAssessment(true);  // already generated — just view it
+    else void generateAssessment();           // first time — generate + open
+  }
+
   const accent = persona?.accent_color || "var(--accent)";
 
   return (
@@ -231,16 +349,6 @@ export default function Practice() {
       {/* ── LEFT RAIL ── */}
       <aside className="convoRail">
         <div className="railTop"><Brand size="md" /></div>
-
-        <div className="railSection">
-          <div className="railLabel">Signed in as</div>
-          <UserBadge name={user?.display_name || user?.username || "You"} strong />
-          {user?.role === "admin" && (
-            <Link className="btn btn-secondary btn-sm btn-block" to="/admin" style={{ marginTop: 12 }}>
-              <ArrowLeft /> Back to dashboard
-            </Link>
-          )}
-        </div>
 
         <div className="railSection personaSection">
           <div className="railLabel">Choose a persona</div>
@@ -251,7 +359,11 @@ export default function Practice() {
                 className="personaItem"
                 data-selected={p.key === mode}
                 disabled={active}
-                onClick={() => setMode(p.key)}
+                onClick={() => {
+                  if (p.key === mode) return;
+                  if (ended) clearConversation();  // moving on finalizes the ended convo
+                  setMode(p.key);
+                }}
               >
                 <span className="personaAvatar" style={{ background: p.accent_color || "var(--accent)" }}>
                   <PIcon k={p.key} />
@@ -265,11 +377,21 @@ export default function Practice() {
           </div>
         </div>
 
-        {!active && (
-          <div className="railFoot">
-            <button className="btn btn-ghost btn-block" onClick={logout}><LogOut /> Sign out</button>
+        <div className="railFoot">
+          <div className="acctCard">
+            <div className="acctId">
+              <span className="acctAvatar"><User size={18} /></span>
+              <div className="acctMeta">
+                <span className="acctName">{user?.display_name || user?.username || "You"}</span>
+                <span className="acctRole">{user?.role === "admin" ? "Administrator" : "Employee"}</span>
+              </div>
+            </div>
+            {user?.role === "admin" && (
+              <Link className="btn btn-ghost btn-block btn-sm" to="/admin"><ArrowLeft /> Back to dashboard</Link>
+            )}
+            <button className="btn btn-ghost btn-block btn-sm" onClick={logout}><LogOut /> Sign out</button>
           </div>
-        )}
+        </div>
       </aside>
 
       {/* ── CENTER ── */}
@@ -290,15 +412,12 @@ export default function Practice() {
               <span className={`dot ${phase === "listening" ? "pulse" : ""}`} data-phase={phase} />
               {PHASE_LABEL[phase]}
             </span>
-            {active && (
-              <button className="btn btn-danger btn-sm" onClick={end}><Square /> End conversation</button>
-            )}
           </div>
         </div>
 
         <div className="convoScroll" ref={scrollRef}>
           <div className="convoInner">
-            {messages.length === 0 && !active ? (
+            {!active && !ended ? (
               <div className="chatEmpty">
                 <span className="esIcon"><Mic /></span>
                 <h3>Start a conversation</h3>
@@ -345,11 +464,27 @@ export default function Practice() {
           <div className="composerInner">
             {apiError && <div className="banner" style={{ marginBottom: 12 }}>{apiError}</div>}
             {!active ? (
-              <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-                <button className="startBtn" onClick={start} disabled={!mode}><Play /> Start conversation</button>
-                {hasUserTurns && (
-                  <button className="btn btn-secondary btn-lg" onClick={getAssessment} disabled={assessing}>
-                    {assessing ? <><span className="spinner" /> Generating…</> : "View full assessment"}
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+                <button
+                  className={`startBtn ${starting ? "starting" : ""}`}
+                  onClick={start}
+                  disabled={!mode || starting}
+                >
+                  {starting
+                    ? <><span className="spinner btnSpinner" /> Starting…</>
+                    : <><Play /> {ended ? "Start new conversation" : "Start conversation"}</>}
+                </button>
+                {ended && (
+                  <button className="btn btn-secondary btn-lg" onClick={continuePrev} disabled={starting}>
+                    <History /> Continue previous conversation
+                  </button>
+                )}
+                {/* Fallback only for tablet widths where the right scoring card
+                    (which normally holds this button) is hidden. Never shown on
+                    desktop or mobile. */}
+                {ended && (
+                  <button className="btn btn-secondary btn-lg assessFallback" onClick={openAssessment} disabled={assessing}>
+                    {assessing ? <><span className="spinner" /> Generating…</> : assessment ? "View assessment" : "Generate assessment"}
                   </button>
                 )}
               </div>
@@ -376,7 +511,12 @@ export default function Practice() {
                 </button>
               </form>
             )}
-            {active && <div className="composerHint">The mic reopens automatically after each reply — just talk.</div>}
+            {active && (
+              <div className="composerFoot">
+                <span className="composerHint">The mic reopens automatically after each reply — just talk.</span>
+                <button className="btn btn-danger endBtn" onClick={end}><Square size={16} /> End conversation</button>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -384,43 +524,58 @@ export default function Practice() {
       {/* ── RIGHT RAIL ── */}
       <aside className="convoRail right">
         <div className="railTop">
-          <div className="railLabel">Live evaluation</div>
-          <div className="scoreHero">
-            <span className="scoreBig">{live.score == null ? "—" : Math.round(live.score)}</span>
-            <span className="scoreOutOf">/ 100</span>
-            {live.level && <span className="cefr">{live.level}</span>}
+          <div className="railTopHead">
+            <div className="railLabel">Live evaluation</div>
+            <label className="switchWrap">
+              <span className="switchLabel">Coach</span>
+              <button
+                type="button"
+                className={`switch ${liveCoach ? "on" : ""}`}
+                role="switch"
+                aria-checked={liveCoach}
+                aria-label="Toggle live coach"
+                title={liveCoach ? "Live coach on — click to turn off (saves cost)" : "Live coach off — click to turn on"}
+                onClick={() => setLiveCoach((v) => !v)}
+              >
+                <span className="switchKnob" />
+              </button>
+            </label>
           </div>
-          <div className="scoreCaption">Updates every turn as you speak</div>
+          <div className="scoreHero">
+            <span className="scoreBig">{!liveCoach || live.score == null ? "—" : Math.round(live.score)}</span>
+            <span className="scoreOutOf">/ 100</span>
+            {liveCoach && live.level && <span className="cefr">{live.level}</span>}
+          </div>
+          <div className="scoreCaption">
+            {liveCoach ? "Updates every turn as you speak" : "Live coach off · full assessment at the end"}
+          </div>
         </div>
 
-        <div className="railSection">
-          <div className="railLabel">Skills</div>
-          <Dim label="Fluency" value={lastTurn?.fluency ?? null} />
-          <Dim label="Grammar" value={lastTurn?.grammar ?? null} />
-          <Dim label="Vocabulary" value={lastTurn?.vocabulary ?? null} />
-          <Dim label="Coherence" value={lastTurn?.coherence ?? null} />
-          {lastTurn?.pronunciation != null && <Dim label="Pronunciation" value={lastTurn.pronunciation} />}
+        <div className={`railSection analysisCard ${liveCoach && analyzing ? "analyzing" : ""}`}>
+          <div className="railLabel">
+            <Activity size={13} /> AI Analysis
+            {liveCoach && analyzing && <span className="analyzingTag">analyzing<i /></span>}
+          </div>
+          <SkillDots t={liveCoach ? lastTurn : null} />
         </div>
 
-        <div className="railSection">
-          <div className="railLabel">Coaching tip</div>
-          {lastTurn?.notes ? (
-            <div className="tipBox"><Lightbulb />{lastTurn.notes}</div>
-          ) : (
-            <p className="muted" style={{ fontSize: 13 }}>Tips appear here as the conversation progresses.</p>
-          )}
+        <div className="railSection coachSection">
+          <div className="railLabel"><Sparkles size={13} /> AI Hindi Coach</div>
+          <div className="coachScroll">
+            <CoachCard coach={coach} analyzing={analyzing} score={lastTurn?.composite ?? null} enabled={liveCoach} />
+          </div>
         </div>
 
-        {!active && hasUserTurns && (
+        {!active && ended && (
           <div className="railFoot">
-            <button className="btn btn-primary btn-block" onClick={getAssessment} disabled={assessing}>
-              {assessing ? <><span className="spinner" /> Generating…</> : "View full assessment"}
+            <button className="btn btn-primary btn-block" onClick={openAssessment} disabled={assessing}>
+              {assessing ? <><span className="spinner" /> Generating…</> : assessment ? "View assessment" : "Generate assessment"}
             </button>
           </div>
         )}
       </aside>
 
-      {assessment && <AssessmentModal a={assessment} onClose={() => setAssessment(null)} />}
+      {showAssessment && assessment && <AssessmentModal a={assessment} onClose={() => setShowAssessment(false)} />}
     </div>
   );
 }
@@ -438,10 +593,123 @@ function Dim({ label, value }: { label: string; value: number | null }) {
   );
 }
 
+// Colour by score band (skill rings + coach heading) so quality reads instantly.
+function toneClass(score: number | null): string {
+  if (score == null) return "neutral";
+  if (score >= 80) return "good";
+  if (score >= 60) return "ok";
+  if (score >= 45) return "warn";
+  return "bad";
+}
+const TONE_COLOR: Record<string, string> = {
+  good: "var(--success)", ok: "var(--accent)", warn: "var(--warn)", bad: "var(--danger)", neutral: "var(--border-2)",
+};
+
+// Four compact ring gauges in one row — the live "AI Analysis" of the last turn.
+function SkillDots({ t }: { t: TurnScore | null }) {
+  const items: [string, number | null][] = [
+    ["Fluency", t?.fluency ?? null],
+    ["Grammar", t?.grammar ?? null],
+    ["Vocab", t?.vocabulary ?? null],
+    ["Coherence", t?.coherence ?? null],
+  ];
+  return (
+    <div className="skillDots">
+      {items.map(([label, v]) => (
+        <div className="skillDot" key={label}>
+          <div className="ring" style={{ "--v": v ?? 0, "--tone": TONE_COLOR[toneClass(v)] } as CSSProperties}>
+            <span className="ringVal">{v == null ? "—" : Math.round(v)}</span>
+          </div>
+          <span className="skillDotLabel">{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CoachCard({ coach, analyzing, score, enabled }: { coach: Coach | null; analyzing: boolean; score: number | null; enabled: boolean }) {
+  if (!enabled) {
+    return (
+      <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+        Live coach is off to save cost. Turn it on (top-right) for instant per-reply feedback — you'll still get a full assessment when you end the conversation.
+      </p>
+    );
+  }
+  if (analyzing && !coach) {
+    return <div className="coachLoading"><span className="spinner" /> Analyzing your reply…</div>;
+  }
+  if (!coach) {
+    return (
+      <p className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>
+        Speak or type a reply — your AI Hindi coach gives instant feedback here.
+      </p>
+    );
+  }
+  const hasSuggestion = !!coach.suggested_reply;
+  return (
+    <div className="coach">
+      {coach.heading && (
+        <div className={`coachHeading ${toneClass(score)}`}>
+          <Sparkles size={14} /> <span>{coach.heading}</span>
+        </div>
+      )}
+      {coach.assessment && <p className="coachText">{coach.assessment}</p>}
+
+      {/* Compact You → Better comparison (or ✅ when already correct). */}
+      <div className="coachCompare">
+        <div className="cmpRow you">
+          <span className="cmpTag">You</span>
+          <span className="cmpText hindi">{coach.current_reply}</span>
+        </div>
+        {hasSuggestion ? (
+          <div className="cmpRow better">
+            <span className="cmpTag">Better</span>
+            <span className="cmpText hindi">{coach.suggested_reply}</span>
+          </div>
+        ) : coach.is_correct ? (
+          <>
+            <div className="cmpOk">✅ Already natural &amp; correct</div>
+            {coach.alternative && (
+              <div className="cmpRow alt">
+                <span className="cmpTag">Or</span>
+                <span className="cmpText hindi">{coach.alternative}</span>
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      {hasSuggestion && coach.why_better && <p className="coachWhy">{coach.why_better}</p>}
+
+      {coach.vocab.length > 0 && (
+        <div className="vocab">
+          <div className="coachLabel">Say it in Hindi</div>
+          <div className="vocabChips">
+            {coach.vocab.map((v, i) => (
+              <span className="vocabChip" key={i}>
+                <b>{v.english}</b><span className="vocabArrow">→</span><span className="hindi">{v.hindi}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssessmentModal({ a, onClose }: { a: Assessment; onClose: () => void }) {
+  // Close on Escape as well as backdrop click / the X button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div className="backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modalScroll" onClick={(e) => e.stopPropagation()}>
+        {/* Fixed header — stays put while the body scrolls, so the close
+            button is always reachable. */}
         <div className="modalHead">
           <div>
             <div className="modalTitle">Assessment</div>
@@ -453,36 +721,39 @@ function AssessmentModal({ a, onClose }: { a: Assessment; onClose: () => void })
           </div>
           <button className="iconBtn" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
-        {a.summary && <p className="summary">{a.summary}</p>}
 
-        <div className="card" style={{ marginBottom: 16 }}>
-          <Dim label="Fluency" value={a.fluency} />
-          <Dim label="Grammar" value={a.grammar} />
-          <Dim label="Vocabulary" value={a.vocabulary} />
-          <Dim label="Coherence" value={a.coherence} />
-          <Dim label="English mixing" value={a.code_mixing} />
-          {a.pronunciation != null && <Dim label="Pronunciation" value={a.pronunciation} />}
-        </div>
+        <div className="modalScrollBody">
+          {a.summary && <p className="summary">{a.summary}</p>}
 
-        <div className="grid2">
-          <FbCard title="Strengths" items={a.strengths} tone="good" />
-          <FbCard title="To improve" items={a.weaknesses} tone="warn" />
-        </div>
-
-        {a.corrections.length > 0 && (
-          <div className="corrList">
-            <h4>Corrections</h4>
-            {a.corrections.map((c, i) => (
-              <div key={i} className="corr">
-                <div className="corrSaid">“{c.said}”</div>
-                <div className="corrBetter">→ {c.better}</div>
-                <div className="corrWhy">{c.why}</div>
-              </div>
-            ))}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <Dim label="Fluency" value={a.fluency} />
+            <Dim label="Grammar" value={a.grammar} />
+            <Dim label="Vocabulary" value={a.vocabulary} />
+            <Dim label="Coherence" value={a.coherence} />
+            <Dim label="English mixing" value={a.code_mixing} />
+            {a.pronunciation != null && <Dim label="Pronunciation" value={a.pronunciation} />}
           </div>
-        )}
 
-        {a.next_steps.length > 0 && <FbCard title="Next steps" items={a.next_steps} tone="info" />}
+          <div className="grid2">
+            <FbCard title="Strengths" items={a.strengths} tone="good" />
+            <FbCard title="To improve" items={a.weaknesses} tone="warn" />
+          </div>
+
+          {a.corrections.length > 0 && (
+            <div className="corrList">
+              <h4>Corrections</h4>
+              {a.corrections.map((c, i) => (
+                <div key={i} className="corr">
+                  <div className="corrSaid">“{c.said}”</div>
+                  <div className="corrBetter">→ {c.better}</div>
+                  <div className="corrWhy">{c.why}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {a.next_steps.length > 0 && <FbCard title="Next steps" items={a.next_steps} tone="info" />}
+        </div>
       </div>
     </div>
   );

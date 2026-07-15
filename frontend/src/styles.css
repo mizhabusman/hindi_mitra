@@ -202,6 +202,7 @@ select { cursor: pointer; }
 .alert { padding: 10px 13px; border-radius: var(--r-sm); font-size: 13px; margin-bottom: 4px; }
 .alert.err { background: var(--danger-weak); color: var(--danger); }
 .alert.ok { background: var(--success-weak); color: var(--success); }
+.linkBtn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .banner {
   display: flex; align-items: center; gap: 9px; padding: 11px 15px; border-radius: var(--r); font-size: 13px;
   background: var(--danger-weak); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent); margin-bottom: 16px;
@@ -212,6 +213,11 @@ select { cursor: pointer; }
 .panel h2 { margin: 0 0 16px; font-size: 16px; font-weight: 650; }
 .panelHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .panelHead h2 { margin: 0; }
+/* Header with a right-aligned action (e.g. "Add employee"): the button sits on
+   the SAME line as the title, with the subtitle beneath the pair. */
+.employeesHead { display: block; }
+.employeesHeadMain { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.employeesHead > .muted { display: inline-block; margin-top: 5px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--sh-sm); }
 
 /* ── Auth: landing + login ──────────────────────────────────────────── */
@@ -269,7 +275,15 @@ select { cursor: pointer; }
 .profilePop { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; min-width: 224px;
   background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: var(--sh-lg);
   padding: 12px; animation: fadeUp 0.15s ease both; }
-.profilePopHead { display: flex; align-items: center; gap: 11px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.profilePopHead { display: flex; align-items: center; gap: 11px; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.profilePop .menuItem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; background: none;
+  border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; text-align: left; }
+.profilePop .menuItem:hover { background: var(--surface-2); color: var(--ink); }
+.profilePop .menuItem svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.profilePop .menuItem.danger { color: var(--danger); }
+.profilePop .menuItem.danger:hover { background: var(--danger-weak); }
+.profilePop .menuItem.danger svg { color: var(--danger); }
+.profilePopSep { height: 1px; background: var(--border); margin: 6px 2px; }
 .page { max-width: 1160px; width: 100%; margin: 0 auto; padding: 26px 26px 56px; animation: fadeIn 0.3s ease both; }
 
 /* ── Stat cards ─────────────────────────────────────────────────────── */
@@ -289,6 +303,7 @@ thead th:first-child { border-top-left-radius: var(--r-sm); }
 thead th:last-child { border-top-right-radius: var(--r-sm); }
 tbody td { padding: 13px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--ink-2); }
 tbody td b { color: var(--ink); font-weight: 600; }
+tbody td.num { font-variant-numeric: tabular-nums; color: var(--ink); }
 tbody tr { transition: background var(--t); }
 tbody tr:hover td { background: var(--surface-2); }
 tbody tr:last-child td { border-bottom: none; }
@@ -298,7 +313,12 @@ tbody tr:last-child td { border-bottom: none; }
 .tag.manager { background: var(--warn-weak); color: var(--warn); }
 .tag.employee { background: var(--surface-3); color: var(--ink-2); }
 .nameCell { display: inline-flex; align-items: center; gap: 8px; }
-.actions { display: flex; gap: 7px; }
+.actions { display: flex; gap: 7px; align-items: center; justify-content: flex-end; }
+/* Compact icon action buttons sized to sit level with the text toggle button. */
+.actions .iconBtn { width: 32px; height: 32px; border-radius: 8px; }
+.actions .iconBtn svg { width: 16px; height: 16px; }
+.iconBtn.danger { color: var(--danger); }
+.iconBtn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-weak); }
 .emptyCell { text-align: center; color: var(--muted); padding: 28px 14px !important; }
 
 /* ── Empty & loading states ─────────────────────────────────────────── */
@@ -340,14 +360,28 @@ tbody tr:last-child td { border-bottom: none; }
 /* ════════════════════════════════════════════════════════════════════
    CONVERSATION — fixed 3-column workspace (ChatGPT-style internal scroll)
    ════════════════════════════════════════════════════════════════════ */
-.convo { height: 100vh; display: grid; grid-template-columns: 320px minmax(0, 1fr) 320px; background: var(--bg); overflow: hidden; }
+/* Left rail fixed; the remaining width splits ~2/3 chat : 1/3 coach so the
+   evaluation column has room to breathe. */
+.convo { height: 100vh; display: grid; grid-template-columns: 300px minmax(0, 2fr) minmax(360px, 1fr); background: var(--bg); overflow: hidden; }
 .convoRail { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
 .convoRail.right { border-right: none; border-left: 1px solid var(--border); }
 .railSection { padding: 18px 18px 6px; }
 .railSection + .railSection { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 18px; }
 .railLabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; }
 .railTop { padding: 16px 18px; border-bottom: 1px solid var(--border); }
-.railFoot { margin-top: auto; padding: 16px 18px; border-top: 1px solid var(--border); }
+.railFoot { margin-top: auto; padding: 14px 16px; border-top: 1px solid var(--border);
+  min-height: 108px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
+/* Account card (bottom of the left rail): identity on top, actions below —
+   one connected card, à la ChatGPT/Gemini. Height mirrors the right rail's
+   assessment footer so the two bottom cards read as a matched pair. */
+.acctCard { display: flex; flex-direction: column; gap: 8px; }
+.acctId { display: flex; align-items: center; gap: 10px; }
+.acctAvatar { width: 36px; height: 36px; border-radius: 10px; flex: none; display: grid; place-items: center;
+  background: var(--surface-2); color: var(--muted); }
+.acctMeta { display: flex; flex-direction: column; min-width: 0; }
+.acctName { font-weight: 650; color: var(--ink); font-size: 14px; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctRole { font-size: 11.5px; color: var(--muted); }
 
 /* persona list (left rail) — only this scrolls, so the top section and the
    footer (Sign out) stay fixed even as personas grow. */
@@ -423,7 +457,12 @@ tbody tr:last-child td { border-bottom: none; }
 .sendRound svg { width: 18px; height: 18px; }
 .sendRound:hover:not(:disabled) { background: var(--accent-hover); }
 .sendRound:disabled { background: var(--border-2); cursor: not-allowed; }
-.composerHint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 9px; }
+.composerHint { text-align: center; font-size: 12px; color: var(--muted); }
+/* Composer footer: the reassuring hint + a clearly-placed End button, right
+   where the eye lands (just under the mic/text box). */
+.composerFoot { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 11px; }
+.endBtn { padding: 9px 18px; font-size: 13.5px; border-radius: 999px; }
+.endBtn svg { width: 16px; height: 16px; }
 
 /* big Start button (idle state, center) */
 .startBtn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px; border-radius: 999px; border: none;
@@ -431,10 +470,25 @@ tbody tr:last-child td { border-bottom: none; }
 .startBtn svg { width: 19px; height: 19px; }
 .startBtn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
 .startBtn:disabled { background: var(--border-2); box-shadow: none; cursor: not-allowed; }
+/* While the opener is being generated: keep the accent look, show a spinner. */
+.startBtn.starting:disabled { background: var(--accent); box-shadow: var(--sh-md); cursor: progress; opacity: 0.92; }
+.btnSpinner { width: 17px; height: 17px; border-radius: 50%; flex: none;
+  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: spin 0.7s linear infinite; }
 
 /* right rail: score + coaching */
+.railTopHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.railTopHead .railLabel { margin: 0; }
+.switchWrap { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.switchLabel { font-size: 11px; font-weight: 600; color: var(--muted); }
+.switch { position: relative; width: 34px; height: 19px; border-radius: 999px; border: none; padding: 0; cursor: pointer;
+  background: var(--surface-3); transition: background var(--t); flex: none; }
+.switch.on { background: var(--accent); }
+.switchKnob { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff;
+  box-shadow: var(--sh-xs); transition: transform var(--t); }
+.switch.on .switchKnob { transform: translateX(15px); }
+.switch:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
 .scoreHero { display: flex; align-items: baseline; gap: 9px; }
-.scoreBig { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+.scoreBig { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .scoreOutOf { font-size: 15px; color: var(--muted); font-weight: 600; }
 .cefr { display: inline-block; padding: 3px 11px; border-radius: 999px; background: var(--accent-weak); color: var(--accent-ink); font-weight: 700; font-size: 12px; }
@@ -449,12 +503,72 @@ tbody tr:last-child td { border-bottom: none; }
 .tipBox { display: flex; gap: 9px; font-size: 13px; line-height: 1.55; color: var(--ink-2); background: var(--accent-weak); border-radius: var(--r); padding: 12px 13px; margin-top: 6px; }
 .tipBox svg { flex: none; width: 16px; height: 16px; color: var(--accent); margin-top: 1px; }
 
+/* ── AI Analysis card: four skill rings in one row ──────────────────── */
+.analysisCard .railLabel { display: flex; align-items: center; gap: 6px; }
+.analysisCard .railLabel svg { color: var(--accent); }
+.analyzingTag { margin-left: auto; font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0;
+  color: var(--accent); display: inline-flex; align-items: center; }
+.analyzingTag i { width: 4px; height: 4px; margin-left: 5px; border-radius: 50%; background: var(--accent); animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+.skillDots { display: flex; justify-content: space-between; gap: 6px; }
+.skillDot { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
+.ring { position: relative; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--tone) calc(var(--v) * 1%), var(--surface-3) 0); transition: background 0.5s ease; }
+.ring::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--surface); }
+.ringVal { position: relative; font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.skillDotLabel { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.analysisCard.analyzing .ring { animation: ringPulse 1.1s ease-in-out infinite; }
+@keyframes ringPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ── AI Hindi Coach card (right rail) ───────────────────────────────── */
+.coachSection { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.coachSection .railLabel { display: flex; align-items: center; gap: 6px; flex: none; }
+.coachSection .railLabel svg { color: var(--accent); }
+.coachScroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.coachLoading { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+.coach { display: flex; flex-direction: column; gap: 11px; }
+.coachHeading { align-self: flex-start; display: inline-flex; align-items: center; gap: 7px;
+  font-weight: 700; font-size: 13px; padding: 5px 11px; border-radius: 999px; }
+.coachHeading svg { flex: none; }
+.coachHeading.good { background: var(--success-weak); color: var(--success); }
+.coachHeading.ok { background: var(--accent-weak); color: var(--accent-ink); }
+.coachHeading.warn { background: var(--warn-weak); color: var(--warn); }
+.coachHeading.bad { background: var(--danger-weak); color: var(--danger); }
+.coachHeading.neutral { background: var(--surface-2); color: var(--ink-2); }
+.coachText { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.coachWhy { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); padding-left: 10px; border-left: 2px solid var(--border-2); }
+.coachLabel { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
+
+/* compact You → Better comparison */
+.coachCompare { display: flex; flex-direction: column; gap: 6px; }
+.cmpRow { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.cmpRow.better { background: var(--success-weak); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 25%, transparent); }
+.cmpRow.alt { background: var(--accent-weak); }
+.cmpTag { flex: none; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 3px 6px; border-radius: 6px; margin-top: 1px; }
+.cmpRow.you .cmpTag { background: var(--surface-3); color: var(--muted); }
+.cmpRow.better .cmpTag { background: var(--success); color: #fff; }
+.cmpRow.alt .cmpTag { background: var(--accent); color: #fff; }
+.cmpText { font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+.cmpOk { font-size: 12.5px; font-weight: 600; color: var(--success); background: var(--success-weak); padding: 7px 10px; border-radius: 10px; }
+
+/* vocabulary chips (English → Hindi) */
+.vocabChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vocabChip { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 5px 9px; border-radius: 999px; background: var(--accent-weak); color: var(--ink); }
+.vocabChip b { font-weight: 600; }
+.vocabArrow { color: var(--muted); }
+
 /* ── Assessment modal ───────────────────────────────────────────────── */
 .backdrop { position: fixed; inset: 0; background: rgba(16, 24, 40, 0.55); display: grid; place-items: center; padding: 22px; z-index: 60;
   backdrop-filter: blur(3px); animation: fadeIn 0.2s ease both; }
 .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 26px; max-width: 650px; width: 100%;
   max-height: 90vh; overflow-y: auto; box-shadow: var(--sh-lg); animation: fadeUp 0.28s ease both; }
 .modalSm { max-width: 420px; }
+/* Scrolling modal: pinned header (with close button) + independently scrolling
+   body, so the close control is always reachable no matter how long the report. */
+.modalScroll { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.modalScroll .modalHead { flex: none; margin-bottom: 0; padding: 24px 26px 16px; border-bottom: 1px solid var(--border); }
+.modalScrollBody { overflow-y: auto; padding: 18px 26px 26px; }
 .modalHead { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
 .modalTitle { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .bigScore { font-size: 50px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
@@ -477,9 +591,17 @@ tbody tr:last-child td { border-bottom: none; }
 .corrWhy { font-size: 12.5px; color: var(--muted); }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
+/* The assessment button normally lives in the right scoring card; hide the
+   center fallback everywhere except the tablet band where that card is hidden. */
+.assessFallback { display: none; }
 @media (max-width: 1080px) {
   .convo { grid-template-columns: 260px minmax(0, 1fr); }
   .convoRail.right { display: none; }
+  .assessFallback { display: inline-flex; }
+}
+@media (max-width: 760px) {
+  /* Right rail returns (stacked) below 760px, so the fallback isn't needed. */
+  .assessFallback { display: none; }
 }
 @media (max-width: 760px) {
   body.lockScroll { overflow: auto; }

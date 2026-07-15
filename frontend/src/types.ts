@@ -48,6 +48,24 @@ export interface TurnScore {
   notes: string | null;
 }
 
+// Per-turn AI Hindi Coach feedback (right-rail card). Generated fresh for the
+// user's current reply only. Optional string fields are "" when not applicable.
+export interface VocabTip {
+  english: string;
+  hindi: string;
+}
+
+export interface Coach {
+  heading: string;
+  assessment: string;
+  is_correct: boolean;
+  suggested_reply: string;
+  why_better: string;
+  alternative: string;
+  vocab: VocabTip[];
+  current_reply: string;
+}
+
 // Result of a single listen (browser or Azure). pronunciation is Azure-only.
 export interface ListenResult {
   text: string;
@@ -121,6 +139,8 @@ export interface ConversationRow {
   live_level: string | null;
   assessment_score: number | null;
   assessment_level: string | null;
+  total_tokens: number;
+  cost: number;
 }
 
 export interface HistoryPoint {

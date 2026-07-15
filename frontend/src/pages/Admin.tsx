@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ClipboardCheck, Clock, KeyRound, LogOut, MessagesSquare, Mic, User, Users, Wallet, X } from "lucide-react";
+import { ClipboardCheck, Clock, KeyRound, MessagesSquare, Mic, Trash2, UserPlus, Users, Wallet, X } from "lucide-react";
 import { api } from "../api";
-import { useAuth } from "../auth";
 import Brand from "../components/Brand";
+import ProfileMenu from "../components/ProfileMenu";
 import UserBadge from "../components/UserBadge";
 import GradeScale from "../components/GradeScale";
 import PasswordInput from "../components/PasswordInput";
@@ -11,13 +11,14 @@ import type { Overview, UserMetrics } from "../types";
 import { fmtDate, fmtTime } from "../format";
 
 export default function Admin() {
-  const { user, logout } = useAuth();
   const nav = useNavigate();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserMetrics[] | null>(null);
   const [msg, setMsg] = useState("");
   const [okMsg, setOkMsg] = useState("");
   const [resetUser, setResetUser] = useState<UserMetrics | null>(null);
+  const [delTarget, setDelTarget] = useState<UserMetrics | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const load = async () => {
     const [ov, us] = await Promise.all([api.overview(), api.adminUsers()]);
@@ -26,9 +27,16 @@ export default function Admin() {
   };
   useEffect(() => { load(); }, []);
 
-  const delUser = async (id: number, name: string) => {
-    if (!confirm(`Delete "${name}" and all of their data?`)) return;
-    try { await api.deleteUser(id); load(); } catch (err) { setMsg((err as Error).message); }
+  const confirmDelete = async () => {
+    if (!delTarget) return;
+    try {
+      await api.deleteUser(delTarget.id);
+      setDelTarget(null);
+      load();
+    } catch (err) {
+      setMsg((err as Error).message);
+      setDelTarget(null);
+    }
   };
   const toggleActive = async (u: UserMetrics) => {
     await api.updateUser(u.id, { is_active: !u.is_active });
@@ -44,7 +52,7 @@ export default function Admin() {
         <Brand size="md" sub="Employees dashboard" />
         <div className="topActions">
           <button className="btn btn-primary btn-sm" onClick={() => nav("/practice")}><Mic /> Speaking Tool</button>
-          <ProfileMenu name={user?.display_name || "Admin"} onLogout={logout} />
+          <ProfileMenu />
         </div>
       </header>
 
@@ -54,8 +62,13 @@ export default function Admin() {
 
         {/* PRIMARY: employees + assessments */}
         <div className="panel">
-          <div className="panelHead">
-            <h2>Employees</h2>
+          <div className="panelHead employeesHead">
+            <div className="employeesHeadMain">
+              <h2>Employees</h2>
+              <button className="btn btn-primary btn-sm" onClick={() => { setOkMsg(""); setMsg(""); setAddOpen(true); }}>
+                <UserPlus /> Add employee
+              </button>
+            </div>
             <span className="muted">{employees.length} total · click a row to open their dashboard</span>
           </div>
           <div className="tableWrap">
@@ -72,7 +85,7 @@ export default function Admin() {
                 )}
                 {users !== null && employees.length === 0 && (
                   <tr><td colSpan={8} className="emptyCell">
-                    No employees yet. They register themselves from the Employee Login page.
+                    No employees yet. Use <b>Add employee</b> to create one.
                   </td></tr>
                 )}
                 {employees.map((u) => (
@@ -86,14 +99,16 @@ export default function Admin() {
                     <td>{fmtTime(u.practice_seconds)}</td>
                     <td>{fmtDate(u.latest_activity)}</td>
                     <td className="actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => { setOkMsg(""); setMsg(""); setResetUser(u); }}>
-                        <KeyRound /> Reset password
+                      <button className="iconBtn" title="Reset password" aria-label={`Reset ${u.display_name || u.username}'s password`}
+                        onClick={() => { setOkMsg(""); setMsg(""); setResetUser(u); }}>
+                        <KeyRound />
                       </button>
                       <button className="btn btn-secondary btn-sm" onClick={() => toggleActive(u)}>
                         {u.is_active ? "Disable" : "Enable"}
                       </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => delUser(u.id, u.display_name || u.username)}>
-                        Delete
+                      <button className="iconBtn danger" title="Delete employee" aria-label={`Delete ${u.display_name || u.username}`}
+                        onClick={() => { setOkMsg(""); setMsg(""); setDelTarget(u); }}>
+                        <Trash2 />
                       </button>
                     </td>
                   </tr>
@@ -162,6 +177,104 @@ export default function Admin() {
           onDone={(name) => { setResetUser(null); setOkMsg(`Password reset for ${name}.`); }}
         />
       )}
+
+      {addOpen && (
+        <AddEmployeeModal
+          onClose={() => setAddOpen(false)}
+          onDone={(name) => { setAddOpen(false); setOkMsg(`Employee "${name}" added. Share their password with them privately.`); load(); }}
+        />
+      )}
+
+      {delTarget && (
+        <ConfirmDeleteModal
+          name={delTarget.display_name || delTarget.username}
+          onCancel={() => setDelTarget(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmDeleteModal({
+  name, onCancel, onConfirm,
+}: {
+  name: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const submit = async () => { setBusy(true); await onConfirm(); };
+
+  return (
+    <div className="backdrop" onClick={onCancel}>
+      <div className="modal modalSm" onClick={(e) => e.stopPropagation()}>
+        <div className="modalHead">
+          <div className="modalTitle">Delete employee</div>
+          <button type="button" className="iconBtn" onClick={onCancel} aria-label="Close"><X size={18} /></button>
+        </div>
+        <p className="muted" style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.6 }}>
+          Delete <b style={{ color: "var(--ink)" }}>{name}</b> and all of their conversations, scores, and
+          assessments? This can't be undone.
+        </p>
+        <div className="loginActions">
+          <button className="btn btn-danger btn-block btn-lg" onClick={submit} disabled={busy}>
+            {busy ? "Deleting…" : "Delete employee"}
+          </button>
+          <button type="button" className="btn btn-secondary btn-block" onClick={onCancel} disabled={busy}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddEmployeeModal({ onClose, onDone }: { onClose: () => void; onDone: (name: string) => void }) {
+  const [name, setName] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n) { setErr("Please enter the employee's name."); return; }
+    if (pw.length < 6) { setErr("Password must be at least 6 characters."); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await api.createUser({ username: n, display_name: n, password: pw, role: "employee" });
+      onDone(n);
+    } catch (ex) {
+      setErr((ex as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="backdrop" onClick={onClose}>
+      <form className="modal modalSm" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="modalHead">
+          <div>
+            <div className="modalTitle">Add employee</div>
+            <p className="muted" style={{ margin: "6px 0 0", fontSize: 14 }}>
+              Create an account for a new employee. They'll sign in by picking their name and entering this password.
+            </p>
+          </div>
+          <button type="button" className="iconBtn" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <label className="field">Employee name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoFocus />
+        <label className="field">Password</label>
+        <PasswordInput value={pw} onChange={setPw} placeholder="At least 6 characters" autoComplete="new-password" />
+        {err && <div className="alert err formError">{err}</div>}
+        <div className="loginActions">
+          <button className="btn btn-primary btn-block btn-lg" type="submit" disabled={busy || !name.trim() || pw.length < 6}>
+            {busy ? "Adding…" : "Add employee"}
+          </button>
+          <button type="button" className="btn btn-secondary btn-block" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -215,42 +328,6 @@ function ResetPasswordModal({
           <button type="button" className="btn btn-secondary btn-block" onClick={onClose}>Cancel</button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function ProfileMenu({ name, onLogout }: { name: string; onLogout: () => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-  return (
-    <div className="profileMenu" ref={ref}>
-      <button className="profileTrigger" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}>
-        <span className="profileAvatar"><User size={16} /></span>
-        <span className="profileId">
-          <span className="profileName">{name}</span>
-          <span className="profileRole">Administrator</span>
-        </span>
-        <ChevronDown size={16} className="profileChevron" data-open={open} />
-      </button>
-      {open && (
-        <div className="profilePop" role="menu">
-          <div className="profilePopHead">
-            <span className="profileAvatar lg"><User size={18} /></span>
-            <span className="profileId">
-              <span className="profileName">{name}</span>
-              <span className="profileRole">Administrator</span>
-            </span>
-          </div>
-          <button className="btn btn-secondary btn-block btn-sm" onClick={onLogout}><LogOut /> Sign out</button>
-        </div>
-      )}
     </div>
   );
 }

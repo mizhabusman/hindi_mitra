@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, LineChart, LogOut } from "lucide-react";
+import { ArrowLeft, LineChart } from "lucide-react";
 import { api } from "../api";
-import { useAuth } from "../auth";
 import Brand from "../components/Brand";
+import ProfileMenu from "../components/ProfileMenu";
 import GradeScale from "../components/GradeScale";
 import type { EmployeeDetail as Detail } from "../types";
 import { fmtDate, fmtTime } from "../format";
 
 export default function EmployeeDetail() {
   const { id } = useParams();
-  const { logout } = useAuth();
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState("");
 
@@ -26,7 +25,7 @@ export default function EmployeeDetail() {
         <Brand size="md" sub="Employee dashboard" />
         <div className="topActions">
           <Link className="btn btn-secondary btn-sm" to="/admin"><ArrowLeft /> All employees</Link>
-          <button className="btn btn-secondary btn-sm" onClick={logout}><LogOut /> Sign out</button>
+          <ProfileMenu />
         </div>
       </header>
 
@@ -86,10 +85,10 @@ export default function EmployeeDetail() {
               <div className="tableWrap">
                 <table>
                   <thead>
-                    <tr><th>Persona</th><th>Started</th><th>Live score</th><th>Assessment</th><th>Level</th><th>Status</th></tr>
+                    <tr><th>Persona</th><th>Started</th><th>Live score</th><th>Assessment</th><th>Level</th><th>Tokens</th><th>Cost</th><th>Status</th></tr>
                   </thead>
                   <tbody>
-                    {d.conversations.length === 0 && <tr><td colSpan={6} className="emptyCell">No conversations yet.</td></tr>}
+                    {d.conversations.length === 0 && <tr><td colSpan={8} className="emptyCell">No conversations yet.</td></tr>}
                     {d.conversations.map((c) => (
                       <tr key={c.id}>
                         <td><b>{c.persona_label}</b></td>
@@ -97,6 +96,8 @@ export default function EmployeeDetail() {
                         <td>{c.live_score == null ? "—" : Math.round(c.live_score)}</td>
                         <td>{c.assessment_score == null ? "—" : Math.round(c.assessment_score)}</td>
                         <td>{(c.assessment_level ?? c.live_level) ? <span className="cefr">{c.assessment_level ?? c.live_level}</span> : "—"}</td>
+                        <td className="num">{c.total_tokens.toLocaleString()}</td>
+                        <td className="num">₹{c.cost.toFixed(2)}</td>
                         <td>{c.status}</td>
                       </tr>
                     ))}

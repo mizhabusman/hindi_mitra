@@ -94,6 +94,14 @@ async def stream(
         raise ClaudeError(str(exc)) from exc
 
 
+# For structured scoring/assessment we want the full token budget on the JSON,
+# low latency, and reproducible output — so we disable thinking and set
+# temperature=0. But newer models reject `temperature` (400), and some reject an
+# explicit `thinking` config, so we record any parameter a given model rejects
+# and drop it on later calls. Self-healing, no per-model hardcoding.
+_unsupported_params: dict[str, set[str]] = {}
+
+
 async def structured(
     *,
     system: str,
@@ -102,25 +110,51 @@ async def structured(
     model: str,
     max_tokens: int = 1024,
     cache_system: bool = True,
+    temperature: float | None = 0.0,
 ) -> tuple[dict, Usage]:
     """
     Call Claude and constrain the reply to a JSON schema (structured outputs).
 
-    Returns the parsed object plus token usage. Used for scoring and the final
-    assessment. The system prompt (a stable rubric) is cached by default.
+    Used for scoring and the final assessment. The system prompt (a stable
+    rubric) is cached by default. Thinking is disabled and temperature is 0 so
+    the whole token budget goes to the JSON (no truncation), latency stays low,
+    and the same performance yields the same scores. Any parameter a model
+    rejects is detected and dropped automatically; determinism then rests on the
+    anchored rubric and the structured-output schema.
     """
     sys = system_blocks(system) if cache_system else system
+
+    async def _call(drop: set[str]):
+        kwargs: dict = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": sys,
+            "messages": messages,
+            "output_config": {"format": {"type": "json_schema", "schema": schema}},
+        }
+        if temperature is not None and "temperature" not in drop:
+            kwargs["temperature"] = temperature
+        if "thinking" not in drop:
+            kwargs["thinking"] = {"type": "disabled"}
+        return await _client.messages.create(**kwargs)
+
+    drop = _unsupported_params.get(model, set())
     try:
-        resp = await _client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=sys,
-            messages=messages,
-            output_config={"format": {"type": "json_schema", "schema": schema}},
-        )
+        resp = await _call(drop)
     except anthropic.APIError as exc:
-        logger.error("Anthropic structured call failed: %s", exc)
-        raise ClaudeError(str(exc)) from exc
+        # If the model rejects `temperature` and/or `thinking`, drop them and retry.
+        extra = {p for p in ("temperature", "thinking") if p in str(exc).lower() and p not in drop}
+        if extra:
+            drop = drop | extra
+            _unsupported_params[model] = drop
+            try:
+                resp = await _call(drop)
+            except anthropic.APIError as exc2:
+                logger.error("Anthropic structured call failed: %s", exc2)
+                raise ClaudeError(str(exc2)) from exc2
+        else:
+            logger.error("Anthropic structured call failed: %s", exc)
+            raise ClaudeError(str(exc)) from exc
 
     text = next((b.text for b in resp.content if b.type == "text"), "")
     try:

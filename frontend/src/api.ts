@@ -1,6 +1,7 @@
 // Thin API client. All requests include the session cookie.
 import type {
   Assessment,
+  Coach,
   Conversation,
   CurrentUser,
   EmployeeDetail,
@@ -44,11 +45,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ user_id, password }),
     }),
-  registerEmployee: (name: string, password: string) =>
-    req<{ ok: boolean; id: number; name: string }>("/api/auth/register-employee", {
-      method: "POST",
-      body: JSON.stringify({ name, password }),
-    }),
   logout: () => req<void>("/api/auth/logout", { method: "POST" }),
   me: () => req<CurrentUser>("/api/auth/me"),
 
@@ -60,6 +56,10 @@ export const api = {
     req<{ conversation: Conversation; opener: Message }>("/api/conversations", {
       method: "POST",
       body: JSON.stringify({ persona_key }),
+    }),
+  resumeConversation: (id: number) =>
+    req<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${id}/resume`, {
+      method: "POST",
     }),
   getConversation: (id: number) =>
     req<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${id}`),
@@ -89,7 +89,7 @@ export const api = {
 export interface TurnEvents {
   onDelta?: (text: string) => void;
   onDone?: (msg: Message) => void;
-  onScore?: (payload: { live_score: number | null; live_level: string | null; turn: any }) => void;
+  onScore?: (payload: { live_score: number | null; live_level: string | null; turn: any; coach?: Coach }) => void;
   onError?: (detail: string) => void;
 }
 
@@ -97,13 +97,14 @@ export async function streamTurn(
   conversationId: number,
   text: string,
   ev: TurnEvents,
-  pronunciation: number | null = null
+  pronunciation: number | null = null,
+  liveCoach: boolean = true
 ): Promise<void> {
   const res = await fetch(`/api/conversations/${conversationId}/turns`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, pronunciation }),
+    body: JSON.stringify({ text, pronunciation, live_coach: liveCoach }),
   });
   if (!res.ok || !res.body) {
     ev.onError?.(`Turn failed (${res.status})`);

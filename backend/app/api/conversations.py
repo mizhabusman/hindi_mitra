@@ -116,6 +116,26 @@ async def end(
     await conversation_service.end_conversation(db, convo)
 
 
+@router.post("/{conversation_id}/resume", response_model=ConversationDetail)
+async def resume(
+    conversation_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConversationDetail:
+    """Re-open a just-ended conversation (in-session 'Continue') so more turns
+    append to the SAME conversation and the assessment covers the whole chat."""
+    convo = await conversation_service.get_owned(db, conversation_id, user)
+    if convo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    await conversation_service.resume_conversation(db, convo)
+    persona = await db.get(Persona, convo.persona_id)
+    messages = await conversation_service.load_messages(db, conversation_id)
+    return ConversationDetail(
+        conversation=ConversationOut.from_model(convo, persona.key),
+        messages=[MessageOut.from_model(m) for m in messages],
+    )
+
+
 @router.post("/{conversation_id}/turns")
 async def send_turn(
     conversation_id: int,
@@ -154,15 +174,20 @@ async def send_turn(
 
     async def event_stream():
         # Score the user turn concurrently with generating the reply, so the
-        # live score costs almost no extra wall-clock.
-        score_task = asyncio.create_task(
-            scoring_service.score_turn(
-                message_id=user_msg.id,
-                conversation_id=conversation_id,
-                utterance=text,
-                context=context,
-                pronunciation=body.pronunciation,
+        # live score costs almost no extra wall-clock. Skipped entirely when the
+        # user has turned the live coach off — no per-turn Claude call at all.
+        score_task = (
+            asyncio.create_task(
+                scoring_service.score_turn(
+                    message_id=user_msg.id,
+                    conversation_id=conversation_id,
+                    utterance=text,
+                    context=context,
+                    pronunciation=body.pronunciation,
+                )
             )
+            if body.live_coach
+            else None
         )
 
         parts: list[str] = []
@@ -179,7 +204,8 @@ async def send_turn(
                     parts.append(chunk)
                     yield _sse({"type": "delta", "text": chunk})
         except claude_client.ClaudeError as exc:
-            score_task.cancel()
+            if score_task is not None:
+                score_task.cancel()
             yield _sse({"type": "error", "detail": str(exc)})
             return
 
@@ -206,13 +232,15 @@ async def send_turn(
             }
         )
 
-        # Emit the live score once scoring finishes (best-effort).
-        try:
-            score = await score_task
-        except asyncio.CancelledError:
-            score = None
-        if score is not None:
-            yield _sse({"type": "score", **score})
+        # Emit the live score + coach once scoring finishes (best-effort). When
+        # the live coach is off there is no scoring task and nothing to emit.
+        if score_task is not None:
+            try:
+                score = await score_task
+            except asyncio.CancelledError:
+                score = None
+            if score is not None:
+                yield _sse({"type": "score", **score})
 
     return StreamingResponse(
         event_stream(),
@@ -227,10 +255,21 @@ async def create_assessment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> AssessmentOut:
-    """Generate (or regenerate) the holistic end-of-conversation assessment."""
+    """Get-or-create the holistic end-of-conversation assessment.
+
+    A conversation has exactly one assessment. Once generated it is returned
+    as-is on every subsequent call — re-opening the report never regenerates
+    it, so it costs tokens only once and the score can never drift between
+    views.
+    """
     convo = await conversation_service.get_owned(db, conversation_id, user)
     if convo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+
+    existing = await scoring_service.get_assessment(db, conversation_id)
+    if existing is not None:
+        return AssessmentOut.from_model(existing)
+
     messages = await conversation_service.load_messages(db, conversation_id)
     if not any(m.role.value == "user" for m in messages):
         raise HTTPException(

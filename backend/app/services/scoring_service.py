@@ -36,8 +36,9 @@ _settings = get_settings()
 
 # Recency weight for the live (running) score EMA.
 _EMA_ALPHA = 0.4
-_CEFR = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
+# CEFR level is derived from the numeric score in code (see `_cefr_from_score`)
+# rather than asked of the model, so the level and the score can never disagree.
 _TURN_SCHEMA = {
     "type": "object",
     "properties": {
@@ -47,12 +48,39 @@ _TURN_SCHEMA = {
         "coherence": {"type": "number"},
         "code_mixing": {"type": "number"},
         "composite": {"type": "number"},
-        "cefr_level": {"type": "string", "enum": _CEFR},
-        "notes": {"type": "string"},
+        # Personalized per-turn coaching (the "AI Hindi Coach" card).
+        "coach": {
+            "type": "object",
+            "properties": {
+                "heading": {"type": "string"},
+                "assessment": {"type": "string"},
+                "is_correct": {"type": "boolean"},
+                "suggested_reply": {"type": "string"},
+                "why_better": {"type": "string"},
+                "alternative": {"type": "string"},
+                "vocab": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "english": {"type": "string"},
+                            "hindi": {"type": "string"},
+                        },
+                        "required": ["english", "hindi"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": [
+                "heading", "assessment", "is_correct",
+                "suggested_reply", "why_better", "alternative", "vocab",
+            ],
+            "additionalProperties": False,
+        },
     },
     "required": [
         "fluency", "grammar", "vocabulary", "coherence",
-        "code_mixing", "composite", "cefr_level", "notes",
+        "code_mixing", "composite", "coach",
     ],
     "additionalProperties": False,
 }
@@ -61,7 +89,6 @@ _ASSESSMENT_SCHEMA = {
     "type": "object",
     "properties": {
         "overall_score": {"type": "number"},
-        "cefr_level": {"type": "string", "enum": _CEFR},
         "fluency": {"type": "number"},
         "grammar": {"type": "number"},
         "vocabulary": {"type": "number"},
@@ -86,7 +113,7 @@ _ASSESSMENT_SCHEMA = {
         "next_steps": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
-        "overall_score", "cefr_level", "fluency", "grammar", "vocabulary",
+        "overall_score", "fluency", "grammar", "vocabulary",
         "coherence", "code_mixing", "summary", "strengths", "weaknesses",
         "corrections", "next_steps",
     ],
@@ -147,10 +174,13 @@ async def score_turn(
             messages=[{"role": "user", "content": user_prompt}],
             schema=_TURN_SCHEMA,
             model=_settings.model_scoring,
-            max_tokens=400,
+            # Larger cap: the response now also carries the AI-coach feedback.
+            max_tokens=1000,
         )
     except claude_client.ClaudeError:
         return None
+
+    coach = data.get("coach") or {}
 
     language_composite = _clamp(data.get("composite")) or 0.0
     pron = _clamp(pronunciation)
@@ -167,8 +197,8 @@ async def score_turn(
             code_mixing=_clamp(data.get("code_mixing")),
             pronunciation=pron,
             composite=composite,
-            cefr_level=data.get("cefr_level"),
-            notes=data.get("notes"),
+            cefr_level=_cefr_from_score(composite),
+            notes=coach.get("assessment") or coach.get("heading"),
             rubric_version=rubric_version(),
             scoring_model=_settings.model_scoring,
             input_tokens=usage.input_tokens,
@@ -197,8 +227,21 @@ async def score_turn(
             "code_mixing": score.code_mixing,
             "pronunciation": pron,
             "composite": composite,
-            "cefr_level": data.get("cefr_level"),
-            "notes": data.get("notes"),
+            "cefr_level": _cefr_from_score(composite),
+        },
+        "coach": {
+            "heading": (coach.get("heading") or "").strip(),
+            "assessment": (coach.get("assessment") or "").strip(),
+            "is_correct": bool(coach.get("is_correct", False)),
+            "suggested_reply": (coach.get("suggested_reply") or "").strip(),
+            "why_better": (coach.get("why_better") or "").strip(),
+            "alternative": (coach.get("alternative") or "").strip(),
+            "vocab": [
+                {"english": (v.get("english") or "").strip(), "hindi": (v.get("hindi") or "").strip()}
+                for v in (coach.get("vocab") or [])
+                if isinstance(v, dict) and v.get("english") and v.get("hindi")
+            ][:3],
+            "current_reply": utterance,
         },
         "live_score": live_score,
         "live_level": live_level,
@@ -269,10 +312,11 @@ async def generate_assessment(
         await db.delete(old)
         await db.flush()
 
+    overall = _clamp(data.get("overall_score")) or 0.0
     assessment = Assessment(
         conversation_id=conversation.id,
-        overall_score=_clamp(data.get("overall_score")) or 0.0,
-        cefr_level=data.get("cefr_level", "A1"),
+        overall_score=overall,
+        cefr_level=_cefr_from_score(overall),
         fluency=_clamp(data.get("fluency")),
         grammar=_clamp(data.get("grammar")),
         vocabulary=_clamp(data.get("vocabulary")),

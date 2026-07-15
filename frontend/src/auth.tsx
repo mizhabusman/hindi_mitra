@@ -8,6 +8,7 @@ interface AuthCtx {
   adminLogin: (password: string) => Promise<void>;
   employeeLogin: (userId: number, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
@@ -34,9 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.logout();
     setUser(null);
   };
+  const refresh = async () => {
+    try { setUser(await api.me()); } catch { /* keep current */ }
+  };
 
   return (
-    <Ctx.Provider value={{ user, loading, adminLogin, employeeLogin, logout }}>
+    <Ctx.Provider value={{ user, loading, adminLogin, employeeLogin, logout, refresh }}>
       {children}
     </Ctx.Provider>
   );

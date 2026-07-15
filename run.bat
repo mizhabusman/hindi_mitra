@@ -80,10 +80,19 @@ echo [OK] Web app ready.
 start "Hindi Mitra - Web (keep open)" cmd /k "npm run dev"
 cd ..
 
-REM ---- 6. Open the browser ------------------------------------------
+REM ---- 6. Wait until the web app actually responds, THEN open it ----
+REM    (polling avoids opening on a "cannot connect" page before the
+REM     dev server has finished starting on the first run.)
 echo.
-echo Launching the servers and opening your browser...
-timeout /t 10 /nobreak >nul
+echo Launching the servers... waiting for the app to be ready.
+set /a _tries=0
+:wait_web
+curl -s -o nul --max-time 2 "http://localhost:5173" && goto :web_up
+set /a _tries+=1
+if %_tries% geq 90 goto :web_up
+timeout /t 1 /nobreak >nul
+goto :wait_web
+:web_up
 start "" "http://localhost:5173"
 
 echo.

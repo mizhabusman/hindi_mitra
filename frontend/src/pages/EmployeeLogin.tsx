@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, UserPlus } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import Brand from "../components/Brand";
@@ -11,39 +11,33 @@ export default function EmployeeLogin() {
   const { employeeLogin } = useAuth();
   const nav = useNavigate();
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [ok, setOk] = useState("");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
 
-  const loadEmployees = () => api.employees().then(setEmployees).catch(() => setEmployees([]));
+  // Never blank the last-known list on a transient failure — a failed/slow
+  // load must NOT masquerade as "no employees yet".
+  const loadEmployees = () => {
+    setLoadState((s) => (s === "ready" ? s : "loading"));
+    return api
+      .employees()
+      .then((list) => { setEmployees(list); setLoadState("ready"); })
+      .catch(() => setLoadState("error"));
+  };
   useEffect(() => { loadEmployees(); }, []);
 
   return (
     <div className="authWrap">
       <div className="loginCard">
         <Brand size="lg" />
-        <div className="loginTitle">{mode === "login" ? "Employee Login" : "Register Employee"}</div>
-        <div className="loginSub">
-          {mode === "login" ? "Select your name and enter your password." : "Create a new employee account."}
-        </div>
-        {ok && <div className="alert ok formError">{ok}</div>}
+        <div className="loginTitle">Employee Login</div>
+        <div className="loginSub">Select your name and enter your password.</div>
 
-        {mode === "login" ? (
-          <LoginForm
-            employees={employees}
-            onLogin={employeeLogin}
-            onDone={() => nav("/")}
-            goRegister={() => { setOk(""); setMode("register"); }}
-          />
-        ) : (
-          <RegisterForm
-            onRegistered={async (name) => {
-              await loadEmployees();
-              setOk(`Employee "${name}" registered successfully.`);
-              setMode("login");
-            }}
-            onCancel={() => setMode("login")}
-          />
-        )}
+        <LoginForm
+          employees={employees}
+          loadState={loadState}
+          onRetry={loadEmployees}
+          onLogin={employeeLogin}
+          onDone={() => nav("/")}
+        />
 
         <div className="authBack">
           <Link className="btn btn-secondary btn-sm" to="/"><ArrowLeft /> Back</Link>
@@ -54,12 +48,13 @@ export default function EmployeeLogin() {
 }
 
 function LoginForm({
-  employees, onLogin, onDone, goRegister,
+  employees, loadState, onRetry, onLogin, onDone,
 }: {
   employees: EmployeeOption[];
+  loadState: "loading" | "ready" | "error";
+  onRetry: () => void;
   onLogin: (id: number, pw: string) => Promise<void>;
   onDone: () => void;
-  goRegister: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<EmployeeOption | null>(null);
@@ -130,7 +125,12 @@ function LoginForm({
       <div className="combo" ref={boxRef}>
         <input
           value={query}
-          placeholder={employees.length ? "Search your name…" : "No employees yet — register below"}
+          placeholder={
+            loadState === "loading" ? "Loading employees…"
+              : loadState === "error" ? "Couldn't load employees — tap retry"
+                : employees.length ? "Search your name…"
+                  : "No employees yet — ask your admin to add you"
+          }
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setOpen(true); }}
           onFocus={() => { setOpen(true); setActive(0); }}
           onKeyDown={onKey}
@@ -158,6 +158,12 @@ function LoginForm({
           </div>
         )}
       </div>
+      {loadState === "error" && (
+        <div className="alert err formError">
+          Couldn't load the employee list.{" "}
+          <button type="button" className="linkBtn" onClick={onRetry}>Retry</button>
+        </div>
+      )}
 
       <label className="field">Password</label>
       <PasswordInput value={password} onChange={setPassword} placeholder="Enter your password" autoComplete="current-password" />
@@ -167,52 +173,6 @@ function LoginForm({
         <button className="btn btn-primary btn-block btn-lg" type="submit" disabled={busy || !selected || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <button type="button" className="btn btn-secondary btn-block" onClick={goRegister}>
-          <UserPlus /> Register new employee
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function RegisterForm({
-  onRegistered, onCancel,
-}: {
-  onRegistered: (name: string) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      await api.registerEmployee(name.trim(), password);
-      await onRegistered(name.trim());
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit}>
-      <label className="field">Employee Name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoFocus />
-      <label className="field">Password</label>
-      <PasswordInput value={password} onChange={setPassword} placeholder="At least 6 characters" autoComplete="new-password" />
-      {error && <div className="alert err formError">{error}</div>}
-
-      <div className="loginActions">
-        <button className="btn btn-primary btn-block btn-lg" type="submit" disabled={busy || !name.trim() || password.length < 6}>
-          {busy ? "Registering…" : "Register"}
-        </button>
-        <button type="button" className="btn btn-secondary btn-block" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );

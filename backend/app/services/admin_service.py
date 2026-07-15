@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -20,9 +20,17 @@ from app.db.models import (
     Assessment,
     Conversation,
     Message,
+    MessageRole,
     Persona,
     TurnScore,
     User,
+)
+
+# A conversation is only real once the user has actually spoken — this filters
+# out sessions where the user left after just the AI opener (see issue: don't
+# count empty conversations).
+_HAS_USER_TURN = exists().where(
+    and_(Message.conversation_id == Conversation.id, Message.role == MessageRole.user)
 )
 from app.services import cost
 
@@ -89,7 +97,7 @@ async def compute_user_metrics(
             Conversation.ended_at,
             Conversation.input_tokens,
             Conversation.output_tokens,
-        ).where(Conversation.user_id.in_(ids))
+        ).where(Conversation.user_id.in_(ids), _HAS_USER_TURN)
     )
     for uid, started, ended, cin, cout in convo_rows:
         m = metrics[uid]
@@ -181,6 +189,12 @@ async def employee_detail(db: AsyncSession, user_id: int) -> dict | None:
     m = metrics[0] if metrics else None
     conversations = await list_user_conversations(db, user_id)
 
+    # Make the page reconcile exactly: the total cost/tokens shown up top are the
+    # sum of the per-conversation rows below (each row is rounded for display, so
+    # summing the raw total would drift a few paise from the visible rows).
+    rows_cost = round(sum(c["cost"] for c in conversations), 2)
+    rows_tokens = sum(c["total_tokens"] for c in conversations)
+
     # Improvement history: assessment scores over time (oldest → newest).
     hist_rows = await db.execute(
         select(Assessment.overall_score, Assessment.cefr_level, Assessment.created_at)
@@ -209,8 +223,8 @@ async def employee_detail(db: AsyncSession, user_id: int) -> dict | None:
             "practice_seconds": m.practice_seconds if m else 0.0,
             "avg_score": m.avg_score if m else None,
             "latest_level": m.latest_level if m else None,
-            "total_tokens": m.total_tokens if m else 0,
-            "estimated_cost": round(m.estimated_cost, 2) if m else 0.0,
+            "total_tokens": rows_tokens,
+            "estimated_cost": rows_cost,
         },
         "conversations": conversations,
         "history": history,
@@ -218,16 +232,56 @@ async def employee_detail(db: AsyncSession, user_id: int) -> dict | None:
 
 
 async def list_user_conversations(db: AsyncSession, user_id: int) -> list[dict]:
-    """Conversations for one user with score/level and whether assessed."""
+    """Conversations for one user with score/level, plus per-conversation token
+    usage and estimated cost.
+
+    Cost is priced exactly like the per-user totals in `compute_user_metrics`
+    (chat=conversation model, scoring=scoring model, assessment=assessment
+    model), so the rows here always sum to the employee's total cost shown up
+    top — they can never disagree.
+    """
     rows = await db.execute(
-        select(Conversation, Persona.key, Persona.label, Assessment.overall_score, Assessment.cefr_level)
+        select(
+            Conversation,
+            Persona.key,
+            Persona.label,
+            Assessment.overall_score,
+            Assessment.cefr_level,
+            Assessment.input_tokens,
+            Assessment.output_tokens,
+        )
         .join(Persona, Persona.id == Conversation.persona_id)
         .outerjoin(Assessment, Assessment.conversation_id == Conversation.id)
-        .where(Conversation.user_id == user_id)
+        .where(Conversation.user_id == user_id, _HAS_USER_TURN)
         .order_by(Conversation.started_at.desc())
     )
+
+    # Live-scoring tokens (Haiku) summed per conversation.
+    score_rows = await db.execute(
+        select(
+            Message.conversation_id,
+            func.coalesce(func.sum(TurnScore.input_tokens), 0),
+            func.coalesce(func.sum(TurnScore.output_tokens), 0),
+        )
+        .select_from(TurnScore)
+        .join(Message, Message.id == TurnScore.message_id)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(Conversation.user_id == user_id)
+        .group_by(Message.conversation_id)
+    )
+    score_tokens = {cid: (int(sin), int(sout)) for cid, sin, sout in score_rows}
+
     out = []
-    for convo, pkey, plabel, a_score, a_level in rows:
+    for convo, pkey, plabel, a_score, a_level, a_in, a_out in rows:
+        chat_in, chat_out = convo.input_tokens or 0, convo.output_tokens or 0
+        score_in, score_out = score_tokens.get(convo.id, (0, 0))
+        assess_in, assess_out = a_in or 0, a_out or 0
+        total_tokens = chat_in + chat_out + score_in + score_out + assess_in + assess_out
+        usd = (
+            cost.estimate_cost(_settings.model_conversation, chat_in, chat_out)
+            + cost.estimate_cost(_settings.model_scoring, score_in, score_out)
+            + cost.estimate_cost(_settings.model_assessment, assess_in, assess_out)
+        )
         out.append(
             {
                 "id": convo.id,
@@ -240,6 +294,8 @@ async def list_user_conversations(db: AsyncSession, user_id: int) -> list[dict]:
                 "live_level": convo.live_level,
                 "assessment_score": a_score,
                 "assessment_level": a_level,
+                "total_tokens": total_tokens,
+                "cost": round(usd * _settings.usd_to_inr, 2),
             }
         )
     return out

@@ -4,12 +4,12 @@ Authentication endpoints (JSON API for the SPA).
 Login model:
   * Admin  → password only (matched against any admin account)
   * Employee → pick from a dropdown (by id) + password
-  * Employees can self-register from the employee login page
+  * Employee accounts are created by an admin (see POST /api/admin/users);
+    there is no public self-registration.
 
   GET  /api/auth/employees          public list for the dropdown (names only)
   POST /api/auth/admin-login        {password}
   POST /api/auth/employee-login     {user_id, password}
-  POST /api/auth/register-employee  {name, password}
   POST /api/auth/logout
   GET  /api/auth/me
 """
@@ -30,7 +30,6 @@ from app.schemas.auth import (
     EmployeeLoginRequest,
     EmployeeOption,
     LoginRequest,
-    RegisterEmployeeRequest,
 )
 from app.services import user_service
 
@@ -38,7 +37,6 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _settings = get_settings()
 _login_limiter = RateLimiter(_settings.login_max_attempts, _settings.login_window_seconds)
-_register_limiter = RateLimiter(20, 3600)  # 20 new employees/hour/IP
 
 
 def _client_ip(request: Request) -> str:
@@ -109,29 +107,6 @@ async def employee_login(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect password")
     _set_session_cookie(response, user.id, settings)
     return user
-
-
-@router.post("/register-employee", status_code=status.HTTP_201_CREATED)
-async def register_employee(
-    body: RegisterEmployeeRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    await _register_limiter.check(_client_ip(request))
-    name = body.name.strip()
-    try:
-        user = await user_service.create_user(
-            db,
-            username=name,
-            password=body.password,
-            display_name=name,
-            role=UserRole.employee,
-        )
-    except user_service.UsernameTakenError:
-        raise HTTPException(status.HTTP_409_CONFLICT, "An employee with that name already exists.")
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
-    return {"ok": True, "id": user.id, "name": name}
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
