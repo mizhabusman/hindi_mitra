@@ -91,7 +91,12 @@ export default function Admin() {
                 {employees.map((u) => (
                   <tr key={u.id} className="clickRow" style={{ opacity: u.is_active ? 1 : 0.5 }}
                       onClick={() => nav(`/admin/employees/${u.id}`)}>
-                    <td><UserBadge name={u.display_name || u.username} strong /></td>
+                    <td>
+                      <span className="nameCell">
+                        <UserBadge name={u.display_name || u.username} strong />
+                        {u.employee_id && <span className="empId">{u.employee_id}</span>}
+                      </span>
+                    </td>
                     <td>{u.conversations}</td>
                     <td>{u.assessments}</td>
                     <td>{u.avg_score ?? "—"}</td>
@@ -134,7 +139,7 @@ export default function Admin() {
                 {admins.length === 0 && <tr><td colSpan={7} className="emptyCell">No admin practice yet.</td></tr>}
                 {admins.map((a) => (
                   <tr key={a.id} className="clickRow" onClick={() => nav(`/admin/employees/${a.id}`)}>
-                    <td><span className="nameCell"><UserBadge name={a.display_name || "Admin"} strong /><span className="tag admin">admin</span></span></td>
+                    <td><span className="nameCell"><UserBadge name={a.display_name || "Admin"} strong /><span className="tag admin">admin</span>{a.employee_id && <span className="empId">{a.employee_id}</span>}</span></td>
                     <td>{a.conversations}</td>
                     <td>{a.assessments}</td>
                     <td>{a.avg_score ?? "—"}</td>

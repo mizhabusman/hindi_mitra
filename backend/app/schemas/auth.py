@@ -22,11 +22,13 @@ class EmployeeLoginRequest(BaseModel):
 
 class EmployeeOption(BaseModel):
     id: int
+    employee_id: str | None = None
     name: str
 
 
 class CurrentUser(BaseModel):
     id: int
+    employee_id: str | None = None
     username: str
     display_name: str | None = None
     role: UserRole

@@ -9,6 +9,7 @@ pricing table.
 from __future__ import annotations
 
 import datetime as dt
+import json
 from dataclasses import dataclass, field
 
 from sqlalchemy import and_, exists, func, select
@@ -210,6 +211,7 @@ async def employee_detail(db: AsyncSession, user_id: int) -> dict | None:
     return {
         "user": {
             "id": user.id,
+            "employee_id": user.employee_id,
             "username": user.username,
             "display_name": user.display_name,
             "role": user.role.value,
@@ -228,6 +230,98 @@ async def employee_detail(db: AsyncSession, user_id: int) -> dict | None:
         },
         "conversations": conversations,
         "history": history,
+    }
+
+
+async def conversation_report(db: AsyncSession, conversation_id: int) -> dict | None:
+    """Everything needed to render a persisted report for ONE conversation:
+    metadata, the AI persona, statistics, the saved assessment (verbatim — never
+    regenerated), and the full transcript in chronological order.
+
+    Returns only stored data, so the report is identical every time it's opened.
+    """
+    convo = await db.get(Conversation, conversation_id)
+    if convo is None:
+        return None
+    persona = await db.get(Persona, convo.persona_id)
+    user = await db.get(User, convo.user_id)
+
+    msg_rows = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.turn_index)
+    )
+    messages = list(msg_rows.scalars().all())
+    user_msgs = [m for m in messages if m.role == MessageRole.user]
+    ai_msgs = [m for m in messages if m.role == MessageRole.assistant]
+    user_words = sum(len(m.content.split()) for m in user_msgs)
+
+    started = ensure_utc(convo.started_at)
+    ended = ensure_utc(convo.ended_at)
+    duration = (ended - started).total_seconds() if (started and ended) else None
+
+    a_row = await db.execute(
+        select(Assessment).where(Assessment.conversation_id == conversation_id)
+    )
+    a = a_row.scalar_one_or_none()
+    assessment = None
+    if a is not None:
+        fb = json.loads(a.feedback_json) if a.feedback_json else {}
+        assessment = {
+            "overall_score": a.overall_score,
+            "cefr_level": a.cefr_level,
+            "fluency": a.fluency,
+            "grammar": a.grammar,
+            "vocabulary": a.vocabulary,
+            "coherence": a.coherence,
+            "code_mixing": a.code_mixing,
+            "pronunciation": a.pronunciation,
+            "summary": a.summary,
+            "strengths": fb.get("strengths", []),
+            "weaknesses": fb.get("weaknesses", []),
+            "corrections": fb.get("corrections", []),
+            "next_steps": fb.get("next_steps", []),
+            "created_at": ensure_utc(a.created_at),
+        }
+
+    return {
+        "conversation": {
+            "id": convo.id,
+            "persona_key": persona.key if persona else None,
+            "persona_label": persona.label if persona else "—",
+            "persona_emoji": persona.emoji if persona else None,
+            "persona_accent": persona.accent_color if persona else None,
+            "status": convo.status.value,
+            "started_at": started,
+            "ended_at": ended,
+            "duration_seconds": duration,
+            "live_score": convo.live_score,
+            "live_level": convo.live_level,
+        },
+        "employee": {
+            "id": user.id if user else None,
+            "employee_id": user.employee_id if user else None,
+            "display_name": user.display_name if user else None,
+            "username": user.username if user else None,
+        },
+        "stats": {
+            "message_count": len(messages),
+            "user_messages": len(user_msgs),
+            "assistant_messages": len(ai_msgs),
+            "user_words": user_words,
+            "duration_seconds": duration,
+        },
+        "assessment": assessment,
+        "messages": [
+            {
+                "id": m.id,
+                "turn_index": m.turn_index,
+                "role": m.role.value,
+                "content": m.content,
+                "created_at": ensure_utc(m.created_at),
+            }
+            for m in messages
+        ],
     }
 
 

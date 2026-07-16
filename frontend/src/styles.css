@@ -194,7 +194,8 @@ select { cursor: pointer; }
   background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: var(--sh-lg);
   padding: 6px; animation: fadeUp 0.15s ease both;
 }
-.comboItem { padding: 9px 12px; font-size: 14px; cursor: pointer; border-radius: var(--r-sm); color: var(--ink-2); }
+.comboItem { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; font-size: 14px; cursor: pointer; border-radius: var(--r-sm); color: var(--ink-2); }
 .comboItem:hover,
 .comboItem[aria-selected="true"] { background: var(--accent-weak); color: var(--accent-ink); }
 
@@ -256,6 +257,10 @@ select { cursor: pointer; }
   backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--border);
 }
 .topActions { display: flex; align-items: center; gap: 12px; }
+/* Left cluster: brand + back/up navigation (back belongs on the left). */
+.topLeft { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.topDivider { width: 1px; height: 26px; background: var(--border); flex: none; }
+@media (max-width: 620px) { .topDivider { display: none; } .topLeft { gap: 10px; flex-wrap: wrap; } }
 .topUser { display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 5px; }
 
 /* profile menu (admin identity + sign out) */
@@ -313,6 +318,12 @@ tbody tr:last-child td { border-bottom: none; }
 .tag.manager { background: var(--warn-weak); color: var(--warn); }
 .tag.employee { background: var(--surface-3); color: var(--ink-2); }
 .nameCell { display: inline-flex; align-items: center; gap: 8px; }
+/* Employee identifier chip (e.g. EMP0007) — monospaced, tabular, understated. */
+.empId { font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 1px 6px; white-space: nowrap; }
+.empId.lg { font-size: 12.5px; padding: 2px 9px; }
 .actions { display: flex; gap: 7px; align-items: center; justify-content: flex-end; }
 /* Compact icon action buttons sized to sit level with the text toggle button. */
 .actions .iconBtn { width: 32px; height: 32px; border-radius: 8px; }
@@ -612,4 +623,90 @@ tbody tr:last-child td { border-bottom: none; }
   .grid2 { grid-template-columns: 1fr; }
   .topbar { padding: 12px 16px; }
   .page { padding: 18px 16px 40px; }
+}
+
+/* ── Devanagari text ────────────────────────────────────────────────── */
+/* Hindi renders in a dedicated, highly legible Devanagari face (bundled). */
+.hi { font-family: "Noto Sans Devanagari", "Nirmala UI", system-ui, sans-serif; }
+
+/* ── Clickable table rows (→ conversation report) ───────────────────── */
+.rowLink { cursor: pointer; transition: background 0.12s ease; }
+.rowLink:hover { background: var(--accent-weak); }
+.rowLinkCue { color: var(--muted); text-align: right; width: 1%; }
+.rowLink:hover .rowLinkCue { color: var(--accent); }
+
+/* ── Conversation report ────────────────────────────────────────────── */
+.report { max-width: 900px; }
+
+/* Two columns that share the same vertical band: top and bottom edges align,
+   content centered within each — so the emoji/text block and the score box
+   read as one balanced unit. */
+.reportHero {
+  display: flex; align-items: stretch; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--sh-sm);
+}
+.reportHeroMain { display: flex; align-items: center; gap: 16px; flex: 1 1 340px; min-width: 0; }
+.reportPersona {
+  flex: none; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+  box-shadow: var(--sh-sm);
+}
+.reportPersonaEmoji { font-size: 30px; line-height: 1; }
+.reportText { min-width: 0; }
+.reportKicker { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.reportTitle { margin: 3px 0 6px; font-size: 23px; letter-spacing: -0.02em; line-height: 1.15; }
+.reportSubline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); }
+.reportSubline .dotSep { color: var(--muted); }
+.reportScoreBox {
+  flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+  padding: 14px 26px; border-radius: var(--r); min-width: 176px;
+  background: var(--accent-weak); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.reportScoreBox[data-assessed="false"] { background: var(--surface-2); border-color: var(--border); }
+.reportScoreNum { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); line-height: 1; }
+.reportScoreOf { font-size: 15px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.reportScoreLbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 5px; }
+.reportGrade { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 11px; }
+.reportGradeName { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+
+/* Meta cards: one tidy row of six (shrunk), collapsing to even rows — never a
+   lone orphan (6 → 3 → 2, all even divisors). */
+.reportMeta { grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 18px; }
+.reportMeta .stat { padding: 13px 14px; }
+.reportMeta .stat .v { font-size: 15.5px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+.reportMeta .stat .l { font-size: 11px; margin-top: 3px; }
+@media (max-width: 860px) { .reportMeta { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 480px) { .reportMeta { grid-template-columns: repeat(2, 1fr); } }
+
+.emptyAssess { text-align: center; padding: 22px 12px; }
+.emptyAssess .esIcon { display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 12px;
+  background: var(--accent-weak); color: var(--accent); margin-bottom: 8px; }
+.emptyAssess p { margin: 6px 0 14px; color: var(--ink-2); }
+
+/* Transcript — a clean, readable report layout (not the live chat). */
+.transcript { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+.tRow { display: flex; gap: 12px; align-items: flex-start; max-width: 86%; }
+.tRow.me { flex-direction: row-reverse; margin-left: auto; }
+.tAvatar {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 15px; font-weight: 700; color: #fff; background: var(--ink-2); box-shadow: var(--sh-xs);
+}
+.tRow.me .tAvatar { background: var(--accent); }
+.tBody { min-width: 0; }
+.tRow.me .tBody { text-align: right; }
+.tWho { font-size: 11.5px; font-weight: 700; color: var(--muted); margin: 2px 0 4px; }
+.tBubble {
+  display: inline-block; padding: 11px 15px; border-radius: 14px; font-size: 15.5px; line-height: 1.7;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--ink); text-align: left;
+  white-space: pre-wrap; word-break: break-word;
+}
+.tRow.me .tBubble { background: var(--accent-weak); border-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* ── Print (Save as PDF) ────────────────────────────────────────────── */
+@media print {
+  .noPrint { display: none !important; }
+  .app { background: #fff; }
+  .page.report { max-width: 100%; padding: 0; }
+  .panel, .reportHero, .card { box-shadow: none; break-inside: avoid; }
+  .tRow { break-inside: avoid; }
 }

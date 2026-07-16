@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin
 from app.core.security import hash_password
-from app.db.models import Team, User
+from app.db.models import Conversation, Persona, Team, User
 from app.db.session import get_db
 from app.schemas.admin import (
     TeamCreate,
@@ -25,8 +25,15 @@ from app.schemas.admin import (
     UserMetricsOut,
     UserUpdate,
 )
+from app.schemas.assessment import AssessmentOut
 from app.schemas.user import UserCreate, UserOut
-from app.services import admin_service, user_service
+from app.services import (
+    admin_service,
+    claude_client,
+    conversation_service,
+    scoring_service,
+    user_service,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -116,6 +123,40 @@ async def user_detail(user_id: int, db: AsyncSession = Depends(get_db)) -> dict:
     if detail is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     return detail
+
+
+@router.get("/conversations/{conversation_id}/report")
+async def conversation_report(conversation_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """The persisted report for one conversation — saved assessment + full
+    transcript + stats. Read-only: never regenerates, so it's identical forever."""
+    report = await admin_service.conversation_report(db, conversation_id)
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    return report
+
+
+@router.post("/conversations/{conversation_id}/assessment", response_model=AssessmentOut)
+async def generate_conversation_assessment(
+    conversation_id: int, db: AsyncSession = Depends(get_db)
+) -> AssessmentOut:
+    """Generate + persist the assessment for a conversation that was never
+    assessed (idempotent: returns the existing one if present, so it never
+    regenerates or drifts)."""
+    convo = await db.get(Conversation, conversation_id)
+    if convo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    existing = await scoring_service.get_assessment(db, conversation_id)
+    if existing is not None:
+        return AssessmentOut.from_model(existing)
+    messages = await conversation_service.load_messages(db, conversation_id)
+    if not any(m.role.value == "user" for m in messages):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Nothing to assess — no user turns")
+    persona = await db.get(Persona, convo.persona_id)
+    try:
+        assessment = await scoring_service.generate_assessment(db, convo, persona)
+    except claude_client.ClaudeError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"AI service error: {exc}")
+    return AssessmentOut.from_model(assessment)
 
 
 @router.get("/teams", response_model=list[TeamOut])

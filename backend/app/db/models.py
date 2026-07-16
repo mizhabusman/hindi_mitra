@@ -65,6 +65,10 @@ class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Human-facing unique identifier (e.g. "EMP0007"), auto-assigned on creation
+    # and backfilled for existing rows. Nullable only so the row can be inserted
+    # before the id-derived value is set; every persisted user has one.
+    employee_id: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False, index=True)
     display_name: Mapped[str | None] = mapped_column(String(150))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

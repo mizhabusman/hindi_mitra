@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
 
 class UserOut(BaseModel):
     id: int
+    employee_id: str | None = None
     username: str
     display_name: str | None
     role: UserRole

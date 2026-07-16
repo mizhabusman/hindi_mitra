@@ -19,6 +19,16 @@ class UsernameTakenError(ValueError):
     """Raised when creating a user whose username already exists."""
 
 
+EMPLOYEE_ID_PREFIX = "EMP"
+
+
+def format_employee_id(seq: int) -> str:
+    """The human-facing employee identifier, derived from the immutable primary
+    key. Because ids are unique this is unique too — no extra bookkeeping or
+    collision handling needed. e.g. 7 -> "EMP0007"."""
+    return f"{EMPLOYEE_ID_PREFIX}{seq:04d}"
+
+
 async def get_by_id(db: AsyncSession, user_id: int) -> User | None:
     return await db.get(User, user_id)
 
@@ -53,6 +63,12 @@ async def create_user(
         team_id=team_id,
     )
     db.add(user)
+    # Flush to obtain the auto-increment id, then derive the unique employee_id
+    # from it. Only real staff get one — the admin is a system/operator account,
+    # not an employee, so its employee_id stays NULL.
+    await db.flush()
+    if role != UserRole.admin:
+        user.employee_id = format_employee_id(user.id)
     await db.commit()
     await db.refresh(user)
     return user

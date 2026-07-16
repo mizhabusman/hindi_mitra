@@ -2,6 +2,7 @@ export type Role = "employee" | "manager" | "admin";
 
 export interface CurrentUser {
   id: number;
+  employee_id: string | null;
   username: string;
   display_name: string | null;
   role: Role;
@@ -99,6 +100,7 @@ export interface Assessment {
 
 export interface UserMetrics {
   id: number;
+  employee_id: string | null;
   username: string;
   display_name: string | null;
   role: Role;
@@ -125,6 +127,7 @@ export interface Overview {
 
 export interface EmployeeOption {
   id: number;
+  employee_id: string | null;
   name: string;
 }
 
@@ -149,9 +152,51 @@ export interface HistoryPoint {
   date: string;
 }
 
+export interface ReportMessage {
+  id: number;
+  turn_index: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string | null;
+}
+
+// The persisted, read-only report for one conversation (saved assessment +
+// full transcript + stats). Assembled entirely from stored data.
+export interface ConversationReport {
+  conversation: {
+    id: number;
+    persona_key: string | null;
+    persona_label: string;
+    persona_emoji: string | null;
+    persona_accent: string | null;
+    status: string;
+    started_at: string;
+    ended_at: string | null;
+    duration_seconds: number | null;
+    live_score: number | null;
+    live_level: string | null;
+  };
+  employee: {
+    id: number | null;
+    employee_id: string | null;
+    display_name: string | null;
+    username: string | null;
+  };
+  stats: {
+    message_count: number;
+    user_messages: number;
+    assistant_messages: number;
+    user_words: number;
+    duration_seconds: number | null;
+  };
+  assessment: Assessment | null;
+  messages: ReportMessage[];
+}
+
 export interface EmployeeDetail {
   user: {
     id: number;
+    employee_id: string | null;
     username: string;
     display_name: string | null;
     role: string;

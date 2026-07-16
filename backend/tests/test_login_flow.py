@@ -63,3 +63,33 @@ def test_employee_detail_endpoint(admin_client):
     body = d.json()
     assert body["user"]["display_name"] == "Meena Rao"
     assert "metrics" in body and "conversations" in body and "history" in body
+
+
+def test_employee_id_is_auto_generated_and_unique(admin_client):
+    # Every created user gets a unique, formatted employee_id automatically.
+    a = admin_client.post(
+        "/api/admin/users",
+        json={"username": "Nikhil A", "display_name": "Nikhil A", "password": "secret123", "role": "employee"},
+    ).json()
+    b = admin_client.post(
+        "/api/admin/users",
+        json={"username": "Nikhil B", "display_name": "Nikhil B", "password": "secret123", "role": "employee"},
+    ).json()
+
+    assert a["employee_id"] and b["employee_id"]
+    assert a["employee_id"] != b["employee_id"]          # unique
+    assert a["employee_id"].startswith("EMP")            # formatted
+    assert a["employee_id"] == f"EMP{a['id']:04d}"       # derived from the id
+
+    # The admin is a system account, not an employee — it must NOT have one.
+    assert admin_client.get("/api/auth/me").json()["employee_id"] is None
+
+    # Surfaced consistently across the API surfaces that expose an employee.
+    metrics = {u["id"]: u for u in admin_client.get("/api/admin/users").json()}
+    assert metrics[a["id"]]["employee_id"] == a["employee_id"]
+
+    detail = admin_client.get(f"/api/admin/users/{a['id']}/detail").json()
+    assert detail["user"]["employee_id"] == a["employee_id"]
+
+    dropdown = {e["id"]: e for e in admin_client.get("/api/auth/employees").json()}
+    assert dropdown[a["id"]]["employee_id"] == a["employee_id"]

@@ -74,7 +74,10 @@ async def login(
 @router.get("/employees", response_model=list[EmployeeOption])
 async def list_employees(db: AsyncSession = Depends(get_db)) -> list[EmployeeOption]:
     employees = await user_service.list_active_employees(db)
-    return [EmployeeOption(id=u.id, name=u.display_name or u.username) for u in employees]
+    return [
+        EmployeeOption(id=u.id, employee_id=u.employee_id, name=u.display_name or u.username)
+        for u in employees
+    ]
 
 
 @router.post("/admin-login", response_model=CurrentUser)

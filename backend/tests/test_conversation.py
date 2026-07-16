@@ -133,3 +133,36 @@ def test_resume_conversation_extends_same_row(admin_client):
 
 def test_resume_unknown_conversation_404(admin_client):
     assert admin_client.post("/api/conversations/999999/resume").status_code == 404
+
+
+def test_conversation_report_persists_transcript_and_assessment(admin_client):
+    # Have a real conversation, then verify the admin report returns the saved
+    # transcript + stats, and (after generating) the exact saved assessment.
+    cid = admin_client.post("/api/conversations", json={"persona_key": "teacher"}).json()["conversation"]["id"]
+    _stream_turn(admin_client, cid, "मुझे पढ़ाई अच्छी लगती है।")
+    admin_client.post(f"/api/conversations/{cid}/end")
+
+    r = admin_client.get(f"/api/admin/conversations/{cid}/report")
+    assert r.status_code == 200
+    rep = r.json()
+    assert rep["conversation"]["id"] == cid
+    assert rep["conversation"]["persona_label"]                # persona present
+    assert rep["stats"]["user_messages"] == 1
+    assert rep["stats"]["message_count"] >= 2                  # opener + user turn
+    assert any(m["role"] == "user" for m in rep["messages"])   # full transcript
+    assert rep["assessment"] is None                           # not assessed yet
+
+    # Generate + persist the report (admin one-time action).
+    g = admin_client.post(f"/api/admin/conversations/{cid}/assessment")
+    assert g.status_code == 200
+    saved = g.json()
+
+    # Re-opening returns the SAME saved assessment — never regenerated.
+    rep2 = admin_client.get(f"/api/admin/conversations/{cid}/report").json()
+    assert rep2["assessment"] is not None
+    assert rep2["assessment"]["overall_score"] == saved["overall_score"]
+    assert rep2["assessment"]["cefr_level"] == saved["cefr_level"]
+
+
+def test_conversation_report_unknown_404(admin_client):
+    assert admin_client.get("/api/admin/conversations/999999/report").status_code == 404

@@ -12,6 +12,7 @@ from app.services.admin_service import UserMetrics
 
 class UserMetricsOut(BaseModel):
     id: int
+    employee_id: str | None
     username: str
     display_name: str | None
     role: UserRole
@@ -30,6 +31,7 @@ class UserMetricsOut(BaseModel):
     def from_metrics(cls, m: UserMetrics) -> "UserMetricsOut":
         return cls(
             id=m.user.id,
+            employee_id=m.user.employee_id,
             username=m.user.username,
             display_name=m.user.display_name,
             role=m.user.role,

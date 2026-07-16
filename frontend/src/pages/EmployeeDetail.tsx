@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, LineChart } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, FileText, LineChart } from "lucide-react";
 import { api } from "../api";
 import Brand from "../components/Brand";
 import ProfileMenu from "../components/ProfileMenu";
@@ -10,6 +10,7 @@ import { fmtDate, fmtTime } from "../format";
 
 export default function EmployeeDetail() {
   const { id } = useParams();
+  const nav = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState("");
 
@@ -22,9 +23,12 @@ export default function EmployeeDetail() {
   return (
     <div className="app">
       <header className="topbar">
-        <Brand size="md" sub="Employee dashboard" />
-        <div className="topActions">
+        <div className="topLeft">
+          <Brand size="md" sub="Employee dashboard" />
+          <span className="topDivider" />
           <Link className="btn btn-secondary btn-sm" to="/admin"><ArrowLeft /> All employees</Link>
+        </div>
+        <div className="topActions">
           <ProfileMenu />
         </div>
       </header>
@@ -38,7 +42,10 @@ export default function EmployeeDetail() {
             <div className="empHeader">
               <div className="empAvatar">{(d.user.display_name || d.user.username).charAt(0).toUpperCase()}</div>
               <div>
-                <h1 style={{ margin: 0, fontSize: 24 }}>{d.user.display_name || d.user.username}</h1>
+                <h1 style={{ margin: 0, fontSize: 24, display: "flex", alignItems: "center", gap: 10 }}>
+                  {d.user.display_name || d.user.username}
+                  {d.user.employee_id && <span className="empId lg">{d.user.employee_id}</span>}
+                </h1>
                 <div className="muted">
                   {d.user.is_active ? "Active" : "Disabled"} · joined {fmtDate(d.user.created_at)} · last active {fmtDate(d.user.last_login_at)}
                 </div>
@@ -82,15 +89,18 @@ export default function EmployeeDetail() {
 
             <div className="panel">
               <h2>Conversations &amp; assessments</h2>
+              <p className="muted" style={{ margin: "-6px 0 14px", fontSize: 13 }}>
+                Click any conversation to open its full report — assessment and transcript.
+              </p>
               <div className="tableWrap">
                 <table>
                   <thead>
-                    <tr><th>Persona</th><th>Started</th><th>Live score</th><th>Assessment</th><th>Level</th><th>Tokens</th><th>Cost</th><th>Status</th></tr>
+                    <tr><th>Persona</th><th>Started</th><th>Live score</th><th>Assessment</th><th>Level</th><th>Tokens</th><th>Cost</th><th>Status</th><th></th></tr>
                   </thead>
                   <tbody>
-                    {d.conversations.length === 0 && <tr><td colSpan={8} className="emptyCell">No conversations yet.</td></tr>}
+                    {d.conversations.length === 0 && <tr><td colSpan={9} className="emptyCell">No conversations yet.</td></tr>}
                     {d.conversations.map((c) => (
-                      <tr key={c.id}>
+                      <tr key={c.id} className="rowLink" onClick={() => nav(`/admin/conversations/${c.id}`)} title="Open the full report">
                         <td><b>{c.persona_label}</b></td>
                         <td>{fmtDate(c.started_at)}</td>
                         <td>{c.live_score == null ? "—" : Math.round(c.live_score)}</td>
@@ -99,6 +109,7 @@ export default function EmployeeDetail() {
                         <td className="num">{c.total_tokens.toLocaleString()}</td>
                         <td className="num">₹{c.cost.toFixed(2)}</td>
                         <td>{c.status}</td>
+                        <td className="rowLinkCue"><FileText size={15} /></td>
                       </tr>
                     ))}
                   </tbody>

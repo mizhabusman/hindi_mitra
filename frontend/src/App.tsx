@@ -7,6 +7,7 @@ import EmployeeLogin from "./pages/EmployeeLogin";
 import Practice from "./pages/Practice";
 import Admin from "./pages/Admin";
 import EmployeeDetail from "./pages/EmployeeDetail";
+import ConversationReport from "./pages/ConversationReport";
 
 function Protected({ children, adminOnly }: { children: ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth();
@@ -49,6 +50,14 @@ export default function App() {
         element={
           <Protected adminOnly>
             <EmployeeDetail />
+          </Protected>
+        }
+      />
+      <Route
+        path="/admin/conversations/:cid"
+        element={
+          <Protected adminOnly>
+            <ConversationReport />
           </Protected>
         }
       />

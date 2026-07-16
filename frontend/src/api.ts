@@ -3,6 +3,7 @@ import type {
   Assessment,
   Coach,
   Conversation,
+  ConversationReport,
   CurrentUser,
   EmployeeDetail,
   EmployeeOption,
@@ -78,6 +79,9 @@ export const api = {
     req<unknown>(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteUser: (id: number) => req<void>(`/api/admin/users/${id}`, { method: "DELETE" }),
   adminUserDetail: (id: number) => req<EmployeeDetail>(`/api/admin/users/${id}/detail`),
+  conversationReport: (id: number) => req<ConversationReport>(`/api/admin/conversations/${id}/report`),
+  generateConversationAssessment: (id: number) =>
+    req<Assessment>(`/api/admin/conversations/${id}/assessment`, { method: "POST" }),
   managerTeam: () => req<UserMetrics[]>("/api/manager/team"),
 
   // ── speech ──

@@ -152,7 +152,8 @@ function LoginForm({
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={() => pick(e)}
               >
-                {e.name}
+                <span>{e.name}</span>
+                {e.employee_id && <span className="empId">{e.employee_id}</span>}
               </div>
             ))}
           </div>

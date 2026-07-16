@@ -16,8 +16,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# ── Local databases (dev/test) ──────────────────────────────────────
+# ── Local databases + backups (dev/test — may hold real data) ───────
 *.db
+*.db.bak*
+*.bak
 
 # ── OS / editor cruft ───────────────────────────────────────────────
 .DS_Store
