@@ -160,7 +160,19 @@ async def compute_user_metrics(
             m.latest_level = latest_by_user[uid][1]
         m.finalize()
 
-    return list(metrics.values())
+    # Display order: most recently active first; never-active users fall to the
+    # bottom, alphabetical among themselves (the dict keeps the query's username
+    # order and Python's sort is stable). `.timestamp()` sidesteps naive/aware
+    # datetime comparison differences between the SQLite and Postgres backends.
+    ordered = list(metrics.values())
+    ordered.sort(
+        key=lambda m: (
+            m.latest_activity is not None,
+            m.latest_activity.timestamp() if m.latest_activity else 0.0,
+        ),
+        reverse=True,
+    )
+    return ordered
 
 
 async def org_overview(db: AsyncSession) -> dict:

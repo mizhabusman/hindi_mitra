@@ -202,9 +202,10 @@ export function useSpeech() {
         u.rate = cfg?.rate ?? 1;
         let pitch = cfg?.pitch ?? 1;
         // No voice actually matched the requested gender (e.g. only one Hindi
-        // voice is installed) — nudge pitch so male vs female stays distinct.
-        if (!genderMatched && cfg?.prefer === "female") pitch = Math.max(pitch, 1.25);
-        if (!genderMatched && cfg?.prefer === "male") pitch = Math.min(pitch, 0.8);
+        // voice is installed) — nudge pitch GENTLY so male vs female stays
+        // distinct without sounding high-pitched/flirty or cartoonishly deep.
+        if (!genderMatched && cfg?.prefer === "female") pitch = Math.max(pitch, 1.08);
+        if (!genderMatched && cfg?.prefer === "male") pitch = Math.min(pitch, 0.92);
         u.pitch = pitch;
         u.onend = () => resolve();
         u.onerror = () => resolve();
