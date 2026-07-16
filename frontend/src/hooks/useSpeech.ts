@@ -8,19 +8,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { ListenResult } from "../types";
 import { azureVoiceFor, listenOnceAzure, speakAzure } from "../speech/azure";
+import { END_OF_SPEECH_MS, NO_SPEECH_TIMEOUT_MS } from "../speech/config";
 
 const SpeechRecognitionImpl: any =
   (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 export const browserSpeechSupported = !!(SpeechRecognitionImpl && window.speechSynthesis);
-
-// How long the speaker may pause before we treat the utterance as finished.
-// Deliberately longer than the browser's eager default so natural mid-sentence
-// pauses don't cut the user off (closer to ChatGPT Voice Mode).
-const END_OF_SPEECH_MS = 1500;
-// If we never hear any speech, give up after this so the caller can retry or
-// surface the "mic isn't picking up" hint.
-const NO_SPEECH_TIMEOUT_MS = 8000;
 
 type VoiceCfg = { rate?: number; pitch?: number; prefer?: string } | null;
 
