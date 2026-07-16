@@ -13,24 +13,56 @@ import type {
   UserMetrics,
 } from "./types";
 
-async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
-  if (!res.ok) {
-    let detail = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail);
+// A typed error so callers can distinguish an HTTP failure (with a status —
+// e.g. 401 = truly unauthenticated) from a network/timeout failure (status 0),
+// which is transient and must NOT be treated as "logged out".
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+}
+
+// Generous ceiling so a genuinely long call (the end-of-conversation assessment
+// runs ~15–40s) completes, while a hung request still fails instead of hanging
+// the UI forever.
+const REQUEST_TIMEOUT_MS = 120_000;
+
+async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(path, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      signal: controller.signal,
+      ...opts,
+    });
+    if (!res.ok) {
+      let detail = `Request failed (${res.status})`;
+      try {
+        const body = await res.json();
+        if (body.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(detail, res.status);
+    }
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    // Network error or timeout — status 0 marks it as transient.
+    const aborted = e instanceof DOMException && e.name === "AbortError";
+    throw new ApiError(
+      aborted ? "The request timed out — please try again." : "Network error — please check your connection.",
+      0
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const api = {
@@ -82,7 +114,6 @@ export const api = {
   conversationReport: (id: number) => req<ConversationReport>(`/api/admin/conversations/${id}/report`),
   generateConversationAssessment: (id: number) =>
     req<Assessment>(`/api/admin/conversations/${id}/assessment`, { method: "POST" }),
-  managerTeam: () => req<UserMetrics[]>("/api/manager/team"),
 
   // ── speech ──
   speechConfig: () => req<{ enabled: boolean }>("/api/speech/config"),

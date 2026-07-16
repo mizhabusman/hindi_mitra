@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, conversations, manager, personas, speech
+from app.api import admin, auth, conversations, personas, speech
 from app.bootstrap import run_bootstrap
 from app.config import get_settings
 
@@ -67,7 +67,6 @@ def create_app() -> FastAPI:
     app.include_router(personas.router)
     app.include_router(conversations.router)
     app.include_router(admin.router)
-    app.include_router(manager.router)
     app.include_router(speech.router)
 
     @app.get("/api/health", tags=["meta"])

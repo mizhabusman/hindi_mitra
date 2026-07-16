@@ -71,16 +71,13 @@ class UserMetrics:
 
 
 async def compute_user_metrics(
-    db: AsyncSession, *, team_id: int | None = None, only_user_id: int | None = None
+    db: AsyncSession, *, only_user_id: int | None = None
 ) -> list[UserMetrics]:
     """
-    Aggregate metrics for all users (optionally scoped to one team or a single
-    user). At company scale (tens–hundreds of users) a handful of grouped
-    queries is ample.
+    Aggregate metrics for all users (optionally scoped to a single user). At
+    company scale (tens–hundreds of users) a handful of grouped queries is ample.
     """
     user_q = select(User)
-    if team_id is not None:
-        user_q = user_q.where(User.team_id == team_id)
     if only_user_id is not None:
         user_q = user_q.where(User.id == only_user_id)
     users = list((await db.execute(user_q.order_by(User.username))).scalars().all())

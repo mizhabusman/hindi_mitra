@@ -315,7 +315,6 @@ tbody tr:last-child td { border-bottom: none; }
 .clickRow { cursor: pointer; }
 .tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
 .tag.admin { background: var(--accent-weak); color: var(--accent-ink); }
-.tag.manager { background: var(--warn-weak); color: var(--warn); }
 .tag.employee { background: var(--surface-3); color: var(--ink-2); }
 .nameCell { display: inline-flex; align-items: center; gap: 8px; }
 /* Employee identifier chip (e.g. EMP0007) — monospaced, tabular, understated. */
@@ -624,6 +623,15 @@ tbody tr:last-child td { border-bottom: none; }
   .topbar { padding: 12px 16px; }
   .page { padding: 18px 16px 40px; }
 }
+
+/* ── App-wide error boundary fallback ───────────────────────────────── */
+.errorCard {
+  max-width: 420px; text-align: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-lg); padding: 32px 28px;
+  box-shadow: var(--sh-lg);
+}
+.errorCard h2 { font-size: 19px; margin-bottom: 8px; }
+.errorCard p { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin-bottom: 18px; }
 
 /* ── Devanagari text ────────────────────────────────────────────────── */
 /* Hindi renders in a dedicated, highly legible Devanagari face (bundled). */

@@ -8,6 +8,7 @@ import { api, streamTurn } from "../api";
 import { useAuth } from "../auth";
 import { useSpeech } from "../hooks/useSpeech";
 import Brand from "../components/Brand";
+import { Dim, FbCard } from "../components/assessmentUi";
 import type { Assessment, Coach, Message, Persona, TurnScore } from "../types";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
@@ -580,19 +581,6 @@ export default function Practice() {
   );
 }
 
-function Dim({ label, value }: { label: string; value: number | null }) {
-  const v = value ?? 0;
-  return (
-    <div className="dim">
-      <div className="dimTop">
-        <span className="dname">{label}</span>
-        <span className="dval">{value == null ? "—" : Math.round(v)}</span>
-      </div>
-      <div className="track"><div className="fill" style={{ width: `${v}%` }} /></div>
-    </div>
-  );
-}
-
 // Colour by score band (skill rings + coach heading) so quality reads instantly.
 function toneClass(score: number | null): string {
   if (score == null) return "neutral";
@@ -755,16 +743,6 @@ function AssessmentModal({ a, onClose }: { a: Assessment; onClose: () => void })
           {a.next_steps.length > 0 && <FbCard title="Next steps" items={a.next_steps} tone="info" />}
         </div>
       </div>
-    </div>
-  );
-}
-
-function FbCard({ title, items, tone }: { title: string; items: string[]; tone: string }) {
-  if (!items.length) return null;
-  return (
-    <div className={`fbCard ${tone}`}>
-      <h4>{title}</h4>
-      <ul>{items.map((it, i) => <li key={i}>{it}</li>)}</ul>
     </div>
   );
 }

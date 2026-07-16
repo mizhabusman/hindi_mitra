@@ -16,13 +16,13 @@ def test_user_lifecycle_and_rbac(admin_client):
     # duplicate → 409
     assert admin_client.post("/api/admin/users", json={"username": "emp_test", "password": "secret123"}).status_code == 409
 
-    # promote to manager
-    assert admin_client.patch(f"/api/admin/users/{emp_id}", json={"role": "manager"}).json()["role"] == "manager"
+    # update a field (display name)
+    assert admin_client.patch(f"/api/admin/users/{emp_id}", json={"display_name": "Emp Test"}).json()["display_name"] == "Emp Test"
 
     # metrics endpoint returns rows
     assert admin_client.get("/api/admin/users").status_code == 200
 
-    # RBAC: switch to the manager account; admin routes forbidden
+    # RBAC: switch to the (non-admin) employee account; admin routes forbidden
     admin_client.post("/api/auth/logout")
     admin_client.post("/api/auth/login", json={"username": "emp_test", "password": "secret123"})
     assert admin_client.get("/api/admin/users").status_code == 403

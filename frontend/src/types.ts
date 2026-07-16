@@ -1,4 +1,4 @@
-export type Role = "employee" | "manager" | "admin";
+export type Role = "employee" | "admin";
 
 export interface CurrentUser {
   id: number;
@@ -105,7 +105,6 @@ export interface UserMetrics {
   display_name: string | null;
   role: Role;
   is_active: boolean;
-  team_id: number | null;
   conversations: number;
   assessments: number;
   practice_seconds: number;

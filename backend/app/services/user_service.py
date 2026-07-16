@@ -47,7 +47,6 @@ async def create_user(
     password: str,
     display_name: str | None = None,
     role: UserRole = UserRole.employee,
-    team_id: int | None = None,
 ) -> User:
     username = username.strip()
     if not username or not password:
@@ -60,7 +59,6 @@ async def create_user(
         display_name=display_name or username,
         password_hash=hash_password(password),
         role=role,
-        team_id=team_id,
     )
     db.add(user)
     # Flush to obtain the auto-increment id, then derive the unique employee_id

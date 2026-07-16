@@ -4,6 +4,7 @@ import { ArrowLeft, Printer, MessageSquare, Sparkles } from "lucide-react";
 import { api } from "../api";
 import Brand from "../components/Brand";
 import ProfileMenu from "../components/ProfileMenu";
+import { Dim, FbCard } from "../components/assessmentUi";
 import type { Assessment, ConversationReport as Report } from "../types";
 import { fmtDate, fmtTime } from "../format";
 
@@ -242,25 +243,3 @@ function Transcript({ r }: { r: Report }) {
   );
 }
 
-function Dim({ label, value }: { label: string; value: number | null }) {
-  const v = value ?? 0;
-  return (
-    <div className="dim">
-      <div className="dimTop">
-        <span className="dname">{label}</span>
-        <span className="dval">{value == null ? "—" : Math.round(v)}</span>
-      </div>
-      <div className="track"><div className="fill" style={{ width: `${v}%` }} /></div>
-    </div>
-  );
-}
-
-function FbCard({ title, items, tone }: { title: string; items: string[]; tone: string }) {
-  if (!items.length) return null;
-  return (
-    <div className={`fbCard ${tone}`}>
-      <h4>{title}</h4>
-      <ul>{items.map((it, i) => <li key={i}>{it}</li>)}</ul>
-    </div>
-  );
-}

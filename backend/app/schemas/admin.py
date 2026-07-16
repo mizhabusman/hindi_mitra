@@ -1,7 +1,6 @@
 """Admin/analytics schemas."""
 from __future__ import annotations
 
-import datetime as dt
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +16,6 @@ class UserMetricsOut(BaseModel):
     display_name: str | None
     role: UserRole
     is_active: bool
-    team_id: int | None
     conversations: int
     assessments: int
     practice_seconds: float
@@ -36,7 +34,6 @@ class UserMetricsOut(BaseModel):
             display_name=m.user.display_name,
             role=m.user.role,
             is_active=m.user.is_active,
-            team_id=m.user.team_id,
             conversations=m.conversations,
             assessments=m.assessments,
             practice_seconds=m.practice_seconds,
@@ -52,18 +49,4 @@ class UserUpdate(BaseModel):
     display_name: str | None = Field(None, max_length=150)
     role: UserRole | None = None
     is_active: bool | None = None
-    team_id: int | None = None
     password: str | None = Field(None, min_length=6, max_length=200)
-
-
-class TeamCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=120)
-    description: str | None = Field(None, max_length=500)
-
-
-class TeamOut(BaseModel):
-    id: int
-    name: str
-    description: str | None
-
-    model_config = {"from_attributes": True}

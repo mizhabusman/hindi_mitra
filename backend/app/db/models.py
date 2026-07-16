@@ -35,7 +35,6 @@ from app.db.base import Base, TimestampMixin
 # ── Enums ────────────────────────────────────────────────────────────
 class UserRole(str, enum.Enum):
     employee = "employee"
-    manager = "manager"
     admin = "admin"
 
 
@@ -50,17 +49,7 @@ class MessageRole(str, enum.Enum):
     assistant = "assistant"
 
 
-# ── Users & teams ────────────────────────────────────────────────────
-class Team(Base, TimestampMixin):
-    __tablename__ = "teams"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
-    description: Mapped[str | None] = mapped_column(String(500))
-
-    members: Mapped[list["User"]] = relationship(back_populates="team")
-
-
+# ── Users ────────────────────────────────────────────────────────────
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
@@ -76,17 +65,11 @@ class User(Base, TimestampMixin):
         Enum(UserRole, native_enum=False, length=20), default=UserRole.employee, nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"))
     last_login_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
-    team: Mapped["Team | None"] = relationship(back_populates="members")
     conversations: Mapped[list["Conversation"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-
-    @property
-    def is_admin(self) -> bool:
-        return self.role == UserRole.admin
 
 
 # ── Personas (data-driven) ───────────────────────────────────────────
@@ -240,19 +223,3 @@ class Assessment(Base, TimestampMixin):
     output_tokens: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="assessment")
-
-
-# ── Audit ────────────────────────────────────────────────────────────
-class AuditLog(Base):
-    __tablename__ = "audit_log"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    actor_user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
-    action: Mapped[str] = mapped_column(String(80), nullable=False)
-    target: Mapped[str | None] = mapped_column(String(200))
-    detail: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )

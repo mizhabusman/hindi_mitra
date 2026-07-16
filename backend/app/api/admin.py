@@ -2,29 +2,23 @@
 Admin endpoints (require the admin role).
 
   GET    /api/admin/overview
-  GET    /api/admin/users                     performance metrics (real data)
-  POST   /api/admin/users                     create
-  PATCH  /api/admin/users/{id}                update role/active/team/password
-  DELETE /api/admin/users/{id}                remove (cascades their data)
-  GET    /api/admin/users/{id}/conversations  drill-down
-  GET    /api/admin/teams  /  POST /api/admin/teams
+  GET    /api/admin/users                       performance metrics (real data)
+  POST   /api/admin/users                       create
+  PATCH  /api/admin/users/{id}                  update role/active/password
+  DELETE /api/admin/users/{id}                  remove (cascades their data)
+  GET    /api/admin/users/{id}/detail           employee dashboard data
+  GET    /api/admin/conversations/{id}/report   saved report (assessment + transcript)
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin
 from app.core.security import hash_password
-from app.db.models import Conversation, Persona, Team, User
+from app.db.models import Conversation, Persona, User
 from app.db.session import get_db
-from app.schemas.admin import (
-    TeamCreate,
-    TeamOut,
-    UserMetricsOut,
-    UserUpdate,
-)
+from app.schemas.admin import UserMetricsOut, UserUpdate
 from app.schemas.assessment import AssessmentOut
 from app.schemas.user import UserCreate, UserOut
 from app.services import (
@@ -58,7 +52,6 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db)) -> U
             password=body.password,
             display_name=body.display_name,
             role=body.role,
-            team_id=body.team_id,
         )
     except user_service.UsernameTakenError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
@@ -88,8 +81,6 @@ async def update_user(
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
-    if body.team_id is not None:
-        user.team_id = body.team_id
     if body.password:
         user.password_hash = hash_password(body.password)
     await db.commit()
@@ -110,11 +101,6 @@ async def delete_user(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     await db.delete(user)  # cascades conversations/messages/scores/assessments
     await db.commit()
-
-
-@router.get("/users/{user_id}/conversations")
-async def user_conversations(user_id: int, db: AsyncSession = Depends(get_db)) -> list[dict]:
-    return await admin_service.list_user_conversations(db, user_id)
 
 
 @router.get("/users/{user_id}/detail")
@@ -157,18 +143,3 @@ async def generate_conversation_assessment(
     except claude_client.ClaudeError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"AI service error: {exc}")
     return AssessmentOut.from_model(assessment)
-
-
-@router.get("/teams", response_model=list[TeamOut])
-async def list_teams(db: AsyncSession = Depends(get_db)) -> list[Team]:
-    result = await db.execute(select(Team).order_by(Team.name))
-    return list(result.scalars().all())
-
-
-@router.post("/teams", response_model=TeamOut, status_code=status.HTTP_201_CREATED)
-async def create_team(body: TeamCreate, db: AsyncSession = Depends(get_db)) -> Team:
-    team = Team(name=body.name, description=body.description)
-    db.add(team)
-    await db.commit()
-    await db.refresh(team)
-    return team
