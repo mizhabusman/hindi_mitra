@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { ListenResult } from "../types";
 import { azureVoiceFor, listenOnceAzure, speakAzure } from "../speech/azure";
-import { END_OF_SPEECH_MS, NO_SPEECH_TIMEOUT_MS } from "../speech/config";
+import { getEndOfSpeechMs, NO_SPEECH_TIMEOUT_MS } from "../speech/config";
 
 const SpeechRecognitionImpl: any =
   (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -113,7 +113,8 @@ export function useSpeech() {
         // we only finish after a real pause — not on every micro-pause.
         const armSilence = () => {
           if (silenceTimer) clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(settle, END_OF_SPEECH_MS);
+          // Read fresh each time so a UI change to the wait applies immediately.
+          silenceTimer = setTimeout(settle, getEndOfSpeechMs());
         };
 
         recog.onresult = (e: any) => {

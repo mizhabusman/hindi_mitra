@@ -9,6 +9,10 @@ import { useAuth } from "../auth";
 import { useSpeech } from "../hooks/useSpeech";
 import Brand from "../components/Brand";
 import { Dim, FbCard } from "../components/assessmentUi";
+import {
+  getEndOfSpeechMs, setEndOfSpeechMs,
+  END_OF_SPEECH_MIN_MS, END_OF_SPEECH_MAX_MS, END_OF_SPEECH_STEP_MS,
+} from "../speech/config";
 import type { Assessment, Coach, Message, Persona, TurnScore } from "../types";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
@@ -68,6 +72,10 @@ export default function Practice() {
   // Live coach on/off — remembered across sessions. Off skips the per-turn AI
   // call entirely (no cost); the end-of-conversation assessment is unaffected.
   const [liveCoach, setLiveCoach] = useState(() => localStorage.getItem("hb_live_coach") !== "off");
+  // End-of-speech wait (how long we pause after the user stops before responding).
+  // Saved per person; both speech providers read it fresh on the next mic-open.
+  const [eosMs, setEosMs] = useState(getEndOfSpeechMs());
+  const bumpEos = (delta: number) => setEosMs(setEndOfSpeechMs(eosMs + delta));
   const [apiError, setApiError] = useState("");
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
@@ -549,6 +557,30 @@ export default function Practice() {
           </div>
           <div className="scoreCaption">
             {liveCoach ? "Updates every turn as you speak" : "Live coach off · full assessment at the end"}
+          </div>
+          <div className="waitRow" title="How long the app waits after you stop speaking before it responds.">
+            <span className="waitLabel">Response wait</span>
+            <div className="stepper" role="group" aria-label="Response wait time">
+              <button
+                type="button"
+                className="stepBtn"
+                onClick={() => bumpEos(-END_OF_SPEECH_STEP_MS)}
+                disabled={eosMs <= END_OF_SPEECH_MIN_MS}
+                aria-label="Decrease response wait"
+              >
+                −
+              </button>
+              <span className="stepVal">{(eosMs / 1000).toFixed(1)}s</span>
+              <button
+                type="button"
+                className="stepBtn"
+                onClick={() => bumpEos(END_OF_SPEECH_STEP_MS)}
+                disabled={eosMs >= END_OF_SPEECH_MAX_MS}
+                aria-label="Increase response wait"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
 

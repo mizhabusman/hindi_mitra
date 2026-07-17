@@ -504,6 +504,22 @@ tbody tr:last-child td { border-bottom: none; }
 .cefr { display: inline-block; padding: 3px 11px; border-radius: 999px; background: var(--accent-weak); color: var(--accent-ink); font-weight: 700; font-size: 12px; }
 .cefr.lg { font-size: 15px; padding: 5px 14px; }
 .scoreCaption { font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+
+/* End-of-speech "Response wait" stepper — right-rail speech setting. */
+.waitRow { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.waitLabel { font-size: 11px; font-weight: 600; color: var(--muted); }
+.stepper { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-3);
+  border-radius: 999px; padding: 2px; }
+.stepBtn { width: 22px; height: 22px; display: grid; place-items: center; border: none;
+  background: transparent; color: var(--ink); border-radius: 50%; cursor: pointer;
+  font-size: 16px; line-height: 1; transition: background var(--t); }
+.stepBtn:hover:not(:disabled) { background: var(--surface); }
+.stepBtn:active:not(:disabled) { background: var(--surface-2); }
+.stepBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.stepBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.stepVal { min-width: 34px; text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--ink); font-variant-numeric: tabular-nums; }
 .dim { margin-bottom: 13px; }
 .dimTop { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
 .dname { color: var(--ink-2); font-weight: 500; }

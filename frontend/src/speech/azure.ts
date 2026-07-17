@@ -3,7 +3,7 @@
 // backend (the subscription key never reaches the browser).
 import * as SDK from "microsoft-cognitiveservices-speech-sdk";
 import type { ListenResult } from "../types";
-import { END_OF_SPEECH_MS } from "./config";
+import { getEndOfSpeechMs } from "./config";
 
 export function azureVoiceFor(prefer: string | undefined): string {
   return prefer === "female" ? "hi-IN-SwaraNeural" : "hi-IN-MadhurNeural";
@@ -22,7 +22,7 @@ export function listenOnceAzure(
     // so the wait matches the browser path exactly. Two related knobs govern
     // this — segmentation silence (when a phrase ends) and end-silence (when the
     // single-shot recognition finishes) — so we set both to the same value.
-    const silenceMs = String(END_OF_SPEECH_MS);
+    const silenceMs = String(getEndOfSpeechMs());
     speechConfig.setProperty(SDK.PropertyId.Speech_SegmentationSilenceTimeoutMs, silenceMs);
     speechConfig.setProperty(SDK.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, silenceMs);
     const audioConfig = SDK.AudioConfig.fromDefaultMicrophoneInput();
