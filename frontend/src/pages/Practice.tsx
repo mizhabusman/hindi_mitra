@@ -156,7 +156,7 @@ export default function Practice() {
       .catch(() => setPhase("idle"));
   }
 
-  async function processTurn(text: string, pronunciation: number | null) {
+  async function processTurn(text: string, pronunciation: number | null, hidden = false) {
     text = text.trim();
     if (!text || !cidRef.current || processingRef.current) return;
     processingRef.current = true;
@@ -164,7 +164,7 @@ export default function Practice() {
     stopListening();
     setDraft("");
     setApiError("");
-    setMessages((m) => [...m, { id: -Date.now(), turn_index: -1, role: "user", content: text }]);
+    setMessages((m) => [...m, { id: -Date.now(), turn_index: -1, role: "user", content: text, hidden }]);
     setPhase("thinking");
     // Fresh coaching for THIS reply — clear the previous card and show analyzing
     // (only when the live coach is on; otherwise no per-turn AI call happens).
@@ -303,10 +303,15 @@ export default function Practice() {
 
   function submitText(e: FormEvent) {
     e.preventDefault();
-    const t = draft.trim();
+    let t = draft.trim();
     if (!t || processingRef.current) return;
+    // Examiner shortcut: a message typed as "/hidden <instruction>" is sent to
+    // the AI but not shown in the chat, so the candidate doesn't see the setup.
+    const hidden = /^\/hidden\b\s*/i.test(t);
+    if (hidden) t = t.replace(/^\/hidden\b\s*/i, "").trim();
+    if (!t) return;
     stopListening();
-    void processTurn(t, null);
+    void processTurn(t, null, hidden);
   }
 
   async function end() {
@@ -436,6 +441,7 @@ export default function Practice() {
             ) : (
               <>
                 {messages.map((m, i) => (
+                  m.hidden ? null : (
                   <div key={i} className={`msgRow ${m.role === "user" ? "me" : ""}`}>
                     <span
                       className={`msgAvatar ${m.role === "user" ? "me" : "bot"}`}
@@ -445,6 +451,7 @@ export default function Practice() {
                     </span>
                     <div className={`bubble ${m.role === "user" ? "me" : "bot"}`}>{m.content}</div>
                   </div>
+                  )
                 ))}
                 {interim && (
                   <div className="msgRow me">
