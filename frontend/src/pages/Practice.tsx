@@ -305,10 +305,10 @@ export default function Practice() {
     e.preventDefault();
     let t = draft.trim();
     if (!t || processingRef.current) return;
-    // Examiner shortcut: a message typed as "/hidden <instruction>" is sent to
+    // Examiner shortcut: a message typed as "/hide <instruction>" is sent to
     // the AI but not shown in the chat, so the candidate doesn't see the setup.
-    const hidden = /^\/hidden\b\s*/i.test(t);
-    if (hidden) t = t.replace(/^\/hidden\b\s*/i, "").trim();
+    const hidden = /^\/hide\b\s*/i.test(t);
+    if (hidden) t = t.replace(/^\/hide\b\s*/i, "").trim();
     if (!t) return;
     stopListening();
     void processTurn(t, null, hidden);

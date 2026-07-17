@@ -23,7 +23,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   created_at?: string;
-  // Client-only: an examiner instruction sent with the /hidden tag. Hidden from
+  // Client-only: an examiner instruction sent with the /hide tag. Hidden from
   // the chat view, but NOTE it is still sent to the model, persisted, scored,
   // and shown in the saved transcript — a limitation of this simple approach.
   hidden?: boolean;
