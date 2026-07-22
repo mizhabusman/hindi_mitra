@@ -605,32 +605,35 @@ export default function Practice() {
 
       {/* ── RIGHT RAIL ── */}
       <aside className="convoRail right">
-        <div className="railTop">
-          <div className="railTopHead">
-            <div className="railLabel">Live evaluation</div>
-            <label className="switchWrap">
-              <span className="switchLabel">Coach</span>
-              <button
-                type="button"
-                className={`switch ${liveCoach ? "on" : ""}`}
-                role="switch"
-                aria-checked={liveCoach}
-                aria-label="Toggle live coach"
-                title={liveCoach ? "Live coach on — click to turn off (saves cost)" : "Live coach off — click to turn on"}
-                onClick={() => setLiveCoach((v) => !v)}
-              >
-                <span className="switchKnob" />
-              </button>
-            </label>
+        {/* Controls on top: examiner instruction, then response wait */}
+        {active && isInterview && (
+          <div className="railSection examinerLive">
+            <div className="railLabel"><Sparkles size={13} /> Examiner instruction</div>
+            <form className="examinerLiveForm" onSubmit={sendLiveInstruction}>
+              <textarea
+                className="examinerLiveField"
+                placeholder="Steer the interview mid-conversation — e.g. “Now ask about their last project.” Applies from the AI’s next reply. The candidate never sees this."
+                value={liveInstruction}
+                onChange={(e) => { setLiveInstruction(e.target.value); if (liveNote) setLiveNote(""); }}
+                rows={5}
+                maxLength={1000}
+                disabled={sendingInstruction}
+              />
+              <div className="examinerLiveRow">
+                {liveNote && <span className="examinerLiveNote">{liveNote}</span>}
+                <button
+                  className="btn btn-secondary examinerLiveBtn"
+                  type="submit"
+                  disabled={sendingInstruction || !liveInstruction.trim()}
+                >
+                  {sendingInstruction ? <><span className="spinner" /> Sending…</> : "Send to AI"}
+                </button>
+              </div>
+            </form>
           </div>
-          <div className="scoreHero">
-            <span className="scoreBig">{!liveCoach || live.score == null ? "—" : Math.round(live.score)}</span>
-            <span className="scoreOutOf">/ 100</span>
-            {liveCoach && live.level && <span className="cefr">{live.level}</span>}
-          </div>
-          <div className="scoreCaption">
-            {liveCoach ? "Updates every turn as you speak" : "Live coach off · full assessment at the end"}
-          </div>
+        )}
+
+        <div className="railSection">
           <div className="waitRow" title="How long the app waits after you stop speaking before it responds.">
             <span className="waitLabel">Response wait</span>
             <div className="stepper" role="group" aria-label="Response wait time">
@@ -657,32 +660,34 @@ export default function Practice() {
           </div>
         </div>
 
-        {active && isInterview && (
-          <div className="railSection examinerLive">
-            <div className="railLabel"><Sparkles size={13} /> Examiner instruction</div>
-            <form className="examinerLiveForm" onSubmit={sendLiveInstruction}>
-              <textarea
-                className="examinerLiveField"
-                placeholder="Steer the interview mid-conversation — e.g. “Now ask about their last project.” Applies from the AI’s next reply. The candidate never sees this."
-                value={liveInstruction}
-                onChange={(e) => { setLiveInstruction(e.target.value); if (liveNote) setLiveNote(""); }}
-                rows={2}
-                maxLength={1000}
-                disabled={sendingInstruction}
-              />
-              <div className="examinerLiveRow">
-                {liveNote && <span className="examinerLiveNote">{liveNote}</span>}
-                <button
-                  className="btn btn-secondary examinerLiveBtn"
-                  type="submit"
-                  disabled={sendingInstruction || !liveInstruction.trim()}
-                >
-                  {sendingInstruction ? <><span className="spinner" /> Sending…</> : "Send to AI"}
-                </button>
-              </div>
-            </form>
+        {/* Scoring below: live evaluation score + Coach toggle */}
+        <div className="railSection">
+          <div className="railTopHead">
+            <div className="railLabel">Live evaluation</div>
+            <label className="switchWrap">
+              <span className="switchLabel">Coach</span>
+              <button
+                type="button"
+                className={`switch ${liveCoach ? "on" : ""}`}
+                role="switch"
+                aria-checked={liveCoach}
+                aria-label="Toggle live coach"
+                title={liveCoach ? "Live coach on — click to turn off (saves cost)" : "Live coach off — click to turn on"}
+                onClick={() => setLiveCoach((v) => !v)}
+              >
+                <span className="switchKnob" />
+              </button>
+            </label>
           </div>
-        )}
+          <div className="scoreHero">
+            <span className="scoreBig">{!liveCoach || live.score == null ? "—" : Math.round(live.score)}</span>
+            <span className="scoreOutOf">/ 100</span>
+            {liveCoach && live.level && <span className="cefr">{live.level}</span>}
+          </div>
+          <div className="scoreCaption">
+            {liveCoach ? "Updates every turn as you speak" : "Live coach off · full assessment at the end"}
+          </div>
+        </div>
 
         <div className={`railSection analysisCard ${liveCoach && analyzing ? "analyzing" : ""}`}>
           <div className="railLabel">
