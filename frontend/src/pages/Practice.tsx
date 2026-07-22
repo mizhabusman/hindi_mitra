@@ -81,6 +81,12 @@ export default function Practice() {
   // scored, never in the transcript — it lives only in the server-side prompt.
   const [brief, setBrief] = useState("");
   const [setupOpen, setSetupOpen] = useState(false);
+  // Interview mode = a brief was set at Start. It enables the live "Examiner
+  // instruction" control (right rail) for steering the interview mid-conversation.
+  const [isInterview, setIsInterview] = useState(false);
+  const [liveInstruction, setLiveInstruction] = useState("");
+  const [sendingInstruction, setSendingInstruction] = useState(false);
+  const [liveNote, setLiveNote] = useState("");
   const [apiError, setApiError] = useState("");
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
@@ -238,6 +244,12 @@ export default function Practice() {
     setCoach(null);
     setAnalyzing(false);
     setDraft("");
+    // A fresh slate must not inherit the previous interview's setup.
+    setBrief("");
+    setSetupOpen(false);
+    setIsInterview(false);
+    setLiveInstruction("");
+    setLiveNote("");
   }
 
   async function start() {
@@ -253,6 +265,10 @@ export default function Practice() {
     setCoach(null);
     setAnalyzing(false);
     setDraft("");
+    // Interview mode (brief present) unlocks the live examiner control.
+    setIsInterview(brief.trim().length > 0);
+    setLiveInstruction("");
+    setLiveNote("");
     emptyRef.current = 0;
     processingRef.current = false;
     runningRef.current = true;
@@ -312,6 +328,25 @@ export default function Practice() {
     if (!t || processingRef.current) return;
     stopListening();
     void processTurn(t, null);
+  }
+
+  // Live examiner steering: append an instruction to the interview brief. It
+  // reaches the AI from its next reply and never appears as a chat message.
+  async function sendLiveInstruction(e: FormEvent) {
+    e.preventDefault();
+    const text = liveInstruction.trim();
+    if (!text || !cidRef.current || sendingInstruction) return;
+    setSendingInstruction(true);
+    setLiveNote("");
+    try {
+      await api.appendBrief(cidRef.current, text);
+      setLiveInstruction("");
+      setLiveNote("Added — the AI will follow this from its next reply.");
+    } catch (err) {
+      setLiveNote((err as Error).message || "Couldn't send — please try again.");
+    } finally {
+      setSendingInstruction(false);
+    }
   }
 
   async function end() {
@@ -376,6 +411,9 @@ export default function Practice() {
                 onClick={() => {
                   if (p.key === mode) return;
                   if (ended) clearConversation();  // moving on finalizes the ended convo
+                  // A new persona = a fresh setup; never carry the previous brief over.
+                  setBrief("");
+                  setSetupOpen(false);
                   setMode(p.key);
                 }}
               >
@@ -618,6 +656,33 @@ export default function Practice() {
             </div>
           </div>
         </div>
+
+        {active && isInterview && (
+          <div className="railSection examinerLive">
+            <div className="railLabel"><Sparkles size={13} /> Examiner instruction</div>
+            <form className="examinerLiveForm" onSubmit={sendLiveInstruction}>
+              <textarea
+                className="examinerLiveField"
+                placeholder="Steer the interview mid-conversation — e.g. “Now ask about their last project.” Applies from the AI’s next reply. The candidate never sees this."
+                value={liveInstruction}
+                onChange={(e) => { setLiveInstruction(e.target.value); if (liveNote) setLiveNote(""); }}
+                rows={2}
+                maxLength={1000}
+                disabled={sendingInstruction}
+              />
+              <div className="examinerLiveRow">
+                {liveNote && <span className="examinerLiveNote">{liveNote}</span>}
+                <button
+                  className="btn btn-secondary examinerLiveBtn"
+                  type="submit"
+                  disabled={sendingInstruction || !liveInstruction.trim()}
+                >
+                  {sendingInstruction ? <><span className="spinner" /> Sending…</> : "Send to AI"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         <div className={`railSection analysisCard ${liveCoach && analyzing ? "analyzing" : ""}`}>
           <div className="railLabel">

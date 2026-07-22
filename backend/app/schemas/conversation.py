@@ -17,6 +17,13 @@ class StartConversationRequest(BaseModel):
     brief: str | None = Field(None, max_length=4000)
 
 
+class BriefAppendRequest(BaseModel):
+    # A live examiner instruction added mid-conversation. Appended to the
+    # conversation's brief (system prompt only) — never a chat message, so it
+    # stays out of the transcript, scoring, and the assessment.
+    text: str = Field(..., min_length=1, max_length=1000)
+
+
 class TurnRequest(BaseModel):
     # The transcribed user utterance. Length is enforced server-side too.
     text: str = Field(..., min_length=1)

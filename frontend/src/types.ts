@@ -174,6 +174,7 @@ export interface ConversationReport {
     duration_seconds: number | null;
     live_score: number | null;
     live_level: string | null;
+    examiner_brief: string | null;
   };
   employee: {
     id: number | null;

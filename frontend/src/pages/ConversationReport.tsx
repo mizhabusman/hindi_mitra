@@ -69,6 +69,7 @@ export default function ConversationReport() {
               generating={generating}
               hasUserTurns={r.stats.user_messages > 0}
             />
+            {r.conversation.examiner_brief && <ExaminerBriefCard text={r.conversation.examiner_brief} />}
             <Transcript r={r} />
           </>
         )}
@@ -203,6 +204,19 @@ function AssessmentSection({
       )}
 
       {a.next_steps.length > 0 && <FbCard title="Next steps" items={a.next_steps} tone="info" />}
+    </div>
+  );
+}
+
+function ExaminerBriefCard({ text }: { text: string }) {
+  return (
+    <div className="panel">
+      <h2><Sparkles size={18} style={{ verticalAlign: "-3px", marginRight: 8 }} />Examiner setup</h2>
+      <p className="examinerReportHint">
+        Private instructions the examiner gave for this interview (including any added live). These
+        steered the AI but were never shown to the candidate, scored, or counted in the assessment.
+      </p>
+      <div className="examinerReportBox">{text}</div>
     </div>
   );
 }

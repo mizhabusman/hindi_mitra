@@ -29,6 +29,7 @@ from app.db.models import Conversation, ConversationStatus, Persona, User
 from app.db.session import SessionLocal, get_db
 from app.schemas.assessment import AssessmentOut
 from app.schemas.conversation import (
+    BriefAppendRequest,
     ConversationDetail,
     ConversationOut,
     MessageOut,
@@ -136,6 +137,27 @@ async def resume(
         conversation=ConversationOut.from_model(convo, persona.key),
         messages=[MessageOut.from_model(m) for m in messages],
     )
+
+
+@router.post("/{conversation_id}/brief", status_code=status.HTTP_204_NO_CONTENT)
+async def append_brief(
+    conversation_id: int,
+    body: BriefAppendRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Add a live examiner instruction to an active conversation's brief.
+
+    System-prompt only (applied from the next turn) — never a chat message, so it
+    stays out of the transcript, scoring, and the assessment, exactly like the
+    initial brief.
+    """
+    convo = await conversation_service.get_owned(db, conversation_id, user)
+    if convo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+    if convo.status != ConversationStatus.active:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Conversation has ended")
+    await conversation_service.append_examiner_brief(db, convo, body.text)
 
 
 @router.post("/{conversation_id}/turns")

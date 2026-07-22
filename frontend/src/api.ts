@@ -94,6 +94,13 @@ export const api = {
     req<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${id}/resume`, {
       method: "POST",
     }),
+  // Live examiner instruction added mid-conversation (interview steering). Never
+  // becomes a chat message; applies to the AI from its next reply onward.
+  appendBrief: (id: number, text: string) =>
+    req<void>(`/api/conversations/${id}/brief`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
   getConversation: (id: number) =>
     req<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${id}`),
   endConversation: (id: number) =>

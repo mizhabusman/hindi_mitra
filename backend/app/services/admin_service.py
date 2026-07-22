@@ -306,6 +306,9 @@ async def conversation_report(db: AsyncSession, conversation_id: int) -> dict | 
             "duration_seconds": duration,
             "live_score": convo.live_score,
             "live_level": convo.live_level,
+            # Private examiner setup (if this was an interview). Shown in the
+            # report above the transcript; never part of the scored transcript.
+            "examiner_brief": convo.examiner_brief,
         },
         "employee": {
             "id": user.id if user else None,
