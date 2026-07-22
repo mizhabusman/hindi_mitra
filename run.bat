@@ -93,7 +93,9 @@ if %_tries% geq 90 goto :web_up
 timeout /t 1 /nobreak >nul
 goto :wait_web
 :web_up
-start "" "http://localhost:5173"
+REM "?fresh" tells the app to clear any existing session and open at the login
+REM page (in your normal browser), so each launch starts clean for a new person.
+start "" "http://localhost:5173/?fresh=1"
 
 echo.
 echo ============================================================

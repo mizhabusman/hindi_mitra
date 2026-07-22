@@ -13,6 +13,12 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
 
+// Set once per page load when the app is opened with "?fresh" (the run.bat
+// launcher does this so a demo always starts at the login screen). Kept at
+// module scope so React StrictMode's dev double-mount can't resurrect the
+// session with a second /me call while the fresh logout is still in flight.
+let freshStart = false;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // logged-in user onto the login screen.
   useEffect(() => {
     let cancelled = false;
+
+    // Fresh-start launch (run.bat opens "…/?fresh"): always begin at the login
+    // screen. Clear any existing session, strip the marker from the URL so a
+    // refresh doesn't re-trigger, and show the landing page — never auto-resume
+    // into the dashboard. Any other way of opening the app is unaffected.
+    if (freshStart || new URLSearchParams(window.location.search).has("fresh")) {
+      freshStart = true;
+      if (window.location.search) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      void api.logout().catch(() => {});  // clear the server session in the background
+      setUser(null);
+      setLoading(false);
+      return () => { cancelled = true; };
+    }
+
     // Enough attempts (~18s of backoff) to ride out a backend restart/deploy
     // without dropping a logged-in user to the login screen. The app shows the
     // loading spinner throughout, not a misleading "please log in".
