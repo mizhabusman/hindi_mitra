@@ -605,34 +605,6 @@ export default function Practice() {
 
       {/* ── RIGHT RAIL ── */}
       <aside className="convoRail right">
-        {/* Controls on top: examiner instruction, then response wait */}
-        {active && isInterview && (
-          <div className="railSection examinerLive">
-            <div className="railLabel"><Sparkles size={13} /> Examiner instruction</div>
-            <form className="examinerLiveForm" onSubmit={sendLiveInstruction}>
-              <textarea
-                className="examinerLiveField"
-                placeholder="Steer the interview mid-conversation — e.g. “Now ask about their last project.” Applies from the AI’s next reply. The candidate never sees this."
-                value={liveInstruction}
-                onChange={(e) => { setLiveInstruction(e.target.value); if (liveNote) setLiveNote(""); }}
-                rows={5}
-                maxLength={1000}
-                disabled={sendingInstruction}
-              />
-              <div className="examinerLiveRow">
-                {liveNote && <span className="examinerLiveNote">{liveNote}</span>}
-                <button
-                  className="btn btn-secondary examinerLiveBtn"
-                  type="submit"
-                  disabled={sendingInstruction || !liveInstruction.trim()}
-                >
-                  {sendingInstruction ? <><span className="spinner" /> Sending…</> : "Send to AI"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         <div className="railSection">
           <div className="waitRow" title="How long the app waits after you stop speaking before it responds.">
             <span className="waitLabel">Response wait</span>
@@ -703,6 +675,34 @@ export default function Practice() {
             <CoachCard coach={coach} analyzing={analyzing} score={lastTurn?.composite ?? null} enabled={liveCoach} />
           </div>
         </div>
+
+        {/* Examiner instruction — pinned to the bottom of the rail (interview mode) */}
+        {active && isInterview && (
+          <div className="railSection examinerLive">
+            <div className="railLabel"><Sparkles size={13} /> Examiner instruction</div>
+            <form className="examinerLiveForm" onSubmit={sendLiveInstruction}>
+              <textarea
+                className="examinerLiveField"
+                placeholder="Steer the interview mid-conversation — e.g. “Now ask about their last project.” Applies from the AI’s next reply. The candidate never sees this."
+                value={liveInstruction}
+                onChange={(e) => { setLiveInstruction(e.target.value); if (liveNote) setLiveNote(""); }}
+                rows={5}
+                maxLength={1000}
+                disabled={sendingInstruction}
+              />
+              <div className="examinerLiveRow">
+                {liveNote && <span className="examinerLiveNote">{liveNote}</span>}
+                <button
+                  className="btn btn-secondary examinerLiveBtn"
+                  type="submit"
+                  disabled={sendingInstruction || !liveInstruction.trim()}
+                >
+                  {sendingInstruction ? <><span className="spinner" /> Sending…</> : "Send to AI"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {!active && ended && (
           <div className="railFoot">
