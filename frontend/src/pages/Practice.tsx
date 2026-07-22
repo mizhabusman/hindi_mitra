@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
-  Activity, ArrowLeft, Briefcase, Car, GraduationCap, Heart, History, LogOut, MessageCircle,
-  Mic, Play, Send, Smile, Sparkles, Square, Stethoscope, Store, User, X,
+  Activity, ArrowLeft, Briefcase, Car, ChevronDown, ChevronUp, GraduationCap, Heart, History,
+  LogOut, MessageCircle, Mic, Play, Send, Smile, Sparkles, Square, Stethoscope, Store, User, X,
 } from "lucide-react";
 import { api, streamTurn } from "../api";
 import { useAuth } from "../auth";
@@ -76,6 +76,11 @@ export default function Practice() {
   // Saved per person; both speech providers read it fresh on the next mic-open.
   const [eosMs, setEosMs] = useState(getEndOfSpeechMs());
   const bumpEos = (delta: number) => setEosMs(setEndOfSpeechMs(eosMs + delta));
+  // Optional private examiner setup for an interview. Sent once at Start; the AI
+  // then conducts the interview in Hindi. Never shown to the candidate, never
+  // scored, never in the transcript — it lives only in the server-side prompt.
+  const [brief, setBrief] = useState("");
+  const [setupOpen, setSetupOpen] = useState(false);
   const [apiError, setApiError] = useState("");
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
@@ -252,7 +257,7 @@ export default function Practice() {
     processingRef.current = false;
     runningRef.current = true;
     try {
-      const { conversation, opener } = await api.startConversation(mode);
+      const { conversation, opener } = await api.startConversation(mode, brief);
       cidRef.current = conversation.id;
       setMessages([opener]);
       setActive(true);
@@ -432,6 +437,36 @@ export default function Practice() {
                 <h3>Start a conversation</h3>
                 <p>Pick a persona on the left and press Start. Speak in Hindi — the mic opens automatically after
                   each reply, and your live score updates on the right. You can also type.</p>
+
+                <div className="examinerSetup">
+                  <button
+                    type="button"
+                    className="examinerToggle"
+                    onClick={() => setSetupOpen((v) => !v)}
+                    aria-expanded={setupOpen}
+                  >
+                    <Sparkles size={14} />
+                    <span>Set up an interview {brief.trim() ? "· ready" : "(optional)"}</span>
+                    {setupOpen
+                      ? <ChevronUp size={16} className="examinerChev" />
+                      : <ChevronDown size={16} className="examinerChev" />}
+                  </button>
+                  {setupOpen && (
+                    <div className="examinerPanel">
+                      <textarea
+                        className="examinerField"
+                        placeholder={"Write your questions or instructions — the AI asks them in Hindi, one at a time.\n\ne.g. Ask the candidate to introduce themselves, then about their daily work, then about a problem they solved recently."}
+                        value={brief}
+                        onChange={(e) => setBrief(e.target.value)}
+                        rows={5}
+                        maxLength={4000}
+                      />
+                      <p className="examinerNote">
+                        Only you see this — it's never shown to the candidate, never scored, and never appears in the transcript.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
@@ -481,7 +516,7 @@ export default function Practice() {
                 >
                   {starting
                     ? <><span className="spinner btnSpinner" /> Starting…</>
-                    : <><Play /> {ended ? "Start new conversation" : "Start conversation"}</>}
+                    : <><Play /> {ended ? "Start new conversation" : brief.trim() ? "Start interview" : "Start conversation"}</>}
                 </button>
                 {ended && (
                   <button className="btn btn-secondary btn-lg" onClick={continuePrev} disabled={starting}>

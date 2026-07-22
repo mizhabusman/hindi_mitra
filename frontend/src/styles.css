@@ -649,6 +649,23 @@ tbody tr:last-child td { border-bottom: none; }
 .errorCard h2 { font-size: 19px; margin-bottom: 8px; }
 .errorCard p { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin-bottom: 18px; }
 
+/* ── Examiner interview setup (start screen) ────────────────────────── */
+.examinerSetup { margin-top: 24px; width: 100%; max-width: 540px; text-align: left; }
+.examinerToggle { display: inline-flex; align-items: center; gap: 8px; width: 100%;
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all var(--t); }
+.examinerToggle:hover { border-color: var(--border-2); color: var(--ink); }
+.examinerToggle > svg:first-child { color: var(--accent); flex: none; }
+.examinerChev { margin-left: auto; transition: transform var(--t); }
+.examinerPanel { margin-top: 10px; }
+.examinerField { width: 100%; box-sizing: border-box; resize: vertical; min-height: 104px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px; line-height: 1.55; }
+.examinerField:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.examinerField::placeholder { color: var(--muted); }
+.examinerNote { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
 /* ── Devanagari text ────────────────────────────────────────────────── */
 /* Hindi renders in a dedicated, highly legible Devanagari face (bundled). */
 .hi { font-family: "Noto Sans Devanagari", "Nirmala UI", system-ui, sans-serif; }

@@ -10,6 +10,11 @@ from app.schemas._types import UtcDateTime
 
 class StartConversationRequest(BaseModel):
     persona_key: str = Field(..., min_length=1, max_length=50)
+    # Optional examiner setup: private instructions/questions the interviewer
+    # writes before starting. Steers the AI (which asks them in Hindi) but is
+    # stored as session context — never a chat message — so it is never shown to
+    # the candidate, never scored, and never in the transcript or assessment.
+    brief: str | None = Field(None, max_length=4000)
 
 
 class TurnRequest(BaseModel):

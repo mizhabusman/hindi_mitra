@@ -59,7 +59,9 @@ async def start(
     user: User = Depends(get_current_user),
 ) -> StartConversationResponse:
     try:
-        convo, opener = await conversation_service.start_conversation(db, user, body.persona_key)
+        convo, opener = await conversation_service.start_conversation(
+            db, user, body.persona_key, body.brief
+        )
     except conversation_service.ConversationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     except claude_client.ClaudeError as exc:
@@ -167,7 +169,7 @@ async def send_turn(
     persona = await db.get(Persona, convo.persona_id)
     context = scoring_service.build_context(messages)
     user_msg = await conversation_service.record_user_message(db, convo, text)
-    system = conversation_service.build_system_prompt(persona)
+    system = conversation_service.build_system_prompt(persona, convo.examiner_brief)
     history = conversation_service.history_for_api(messages) + [
         {"role": "user", "content": text}
     ]

@@ -85,10 +85,10 @@ export const api = {
   personas: () => req<Persona[]>("/api/personas"),
 
   // ── conversations ──
-  startConversation: (persona_key: string) =>
+  startConversation: (persona_key: string, brief?: string) =>
     req<{ conversation: Conversation; opener: Message }>("/api/conversations", {
       method: "POST",
-      body: JSON.stringify({ persona_key }),
+      body: JSON.stringify({ persona_key, brief: brief?.trim() || undefined }),
     }),
   resumeConversation: (id: number) =>
     req<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${id}/resume`, {

@@ -113,6 +113,12 @@ class Conversation(Base, TimestampMixin):
     )
     ended_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Optional private examiner setup (instructions/questions). Injected into the
+    # system prompt so the AI conducts the interview accordingly, but never stored
+    # as a message — so it's invisible to the candidate and excluded from scoring,
+    # the transcript, and the assessment.
+    examiner_brief: Mapped[str | None] = mapped_column(Text)
+
     # Running (live) score, updated as turns are scored. 0–100 composite.
     live_score: Mapped[float | None] = mapped_column(Float)
     live_level: Mapped[str | None] = mapped_column(String(4))  # CEFR band e.g. "B1"
