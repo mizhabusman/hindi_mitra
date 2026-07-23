@@ -28,15 +28,19 @@ function clampEos(ms: number): number {
 // The current end-of-speech wait in ms (falls back to the default when unset or
 // invalid). Read by both speech providers on each listen.
 export function getEndOfSpeechMs(): number {
-  const raw = Number(localStorage.getItem(EOS_KEY));
-  return raw > 0 ? clampEos(raw) : END_OF_SPEECH_DEFAULT_MS;
+  try {
+    const raw = Number(localStorage.getItem(EOS_KEY));
+    return raw > 0 ? clampEos(raw) : END_OF_SPEECH_DEFAULT_MS;
+  } catch {
+    return END_OF_SPEECH_DEFAULT_MS;  // storage blocked (private mode / enterprise policy)
+  }
 }
 
 // Persist a new end-of-speech wait (clamped to the safe range). Returns the
 // value actually stored, so the UI can reflect the clamped result.
 export function setEndOfSpeechMs(ms: number): number {
   const v = clampEos(ms);
-  localStorage.setItem(EOS_KEY, String(v));
+  try { localStorage.setItem(EOS_KEY, String(v)); } catch { /* storage blocked — keep in-memory only */ }
   return v;
 }
 

@@ -21,9 +21,15 @@ export default function Admin() {
   const [addOpen, setAddOpen] = useState(false);
 
   const load = async () => {
-    const [ov, us] = await Promise.all([api.overview(), api.adminUsers()]);
-    setOverview(ov);
-    setUsers(us);
+    try {
+      const [ov, us] = await Promise.all([api.overview(), api.adminUsers()]);
+      setOverview(ov);
+      setUsers(us);
+      setMsg("");
+    } catch (err) {
+      setMsg((err as Error).message || "Couldn't load the dashboard — refresh to retry.");
+      setUsers((prev) => prev ?? []);  // clear the "Loading…" spinner instead of hanging forever
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -39,8 +45,12 @@ export default function Admin() {
     }
   };
   const toggleActive = async (u: UserMetrics) => {
-    await api.updateUser(u.id, { is_active: !u.is_active });
-    load();
+    try {
+      await api.updateUser(u.id, { is_active: !u.is_active });
+      await load();
+    } catch (err) {
+      setMsg((err as Error).message || "Couldn't update the account — try again.");
+    }
   };
 
   const employees = (users ?? []).filter((u) => u.role !== "admin");

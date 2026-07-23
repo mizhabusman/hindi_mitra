@@ -3,10 +3,12 @@ First-run bootstrap: seed personas and reconcile the single admin account.
 
 Idempotent — safe to run on every startup:
   * Personas are synced from personas.yaml.
-  * Exactly ONE admin exists, matching ADMIN_USERNAME / ADMIN_PASSWORD from the
-    environment. The configured admin is created (or updated to the configured
-    username + password), and any OTHER admin accounts are removed — so demo /
-    stray admins can never linger or be used to log in.
+  * The single admin is SEEDED from ADMIN_USERNAME / ADMIN_PASSWORD only when no
+    admin exists yet. If an admin already exists, its credentials are left
+    untouched (name/password are managed in-app and must survive restarts) — so
+    ADMIN_PASSWORD in the environment applies only on the FIRST boot against an
+    empty database, not as an ongoing password reset. Any extra/stray admin
+    accounts are removed, leaving exactly one.
 """
 from __future__ import annotations
 

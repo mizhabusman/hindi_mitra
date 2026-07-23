@@ -71,7 +71,9 @@ export default function Practice() {
   const [analyzing, setAnalyzing] = useState(false);
   // Live coach on/off — remembered across sessions. Off skips the per-turn AI
   // call entirely (no cost); the end-of-conversation assessment is unaffected.
-  const [liveCoach, setLiveCoach] = useState(() => localStorage.getItem("hb_live_coach") !== "off");
+  const [liveCoach, setLiveCoach] = useState(() => {
+    try { return localStorage.getItem("hb_live_coach") !== "off"; } catch { return true; }
+  });
   // End-of-speech wait (how long we pause after the user stops before responding).
   // Saved per person; both speech providers read it fresh on the next mic-open.
   const [eosMs, setEosMs] = useState(getEndOfSpeechMs());
@@ -106,13 +108,15 @@ export default function Practice() {
     return () => document.body.classList.remove("lockScroll");
   }, []);
   useEffect(() => {
-    api.personas().then((p) => {
-      setPersonas(p);
-      if (p.length) setMode(p[0].key);
-    });
+    api.personas()
+      .then((p) => {
+        setPersonas(p);
+        if (p.length) setMode(p[0].key);
+      })
+      .catch((e) => setApiError((e as Error).message || "Couldn't load personas — refresh to retry."));
   }, []);
   useEffect(() => {
-    localStorage.setItem("hb_live_coach", liveCoach ? "on" : "off");
+    try { localStorage.setItem("hb_live_coach", liveCoach ? "on" : "off"); } catch { /* storage blocked */ }
     if (!liveCoach) setAnalyzing(false);
   }, [liveCoach]);
   useEffect(() => {

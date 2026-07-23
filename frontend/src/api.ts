@@ -164,7 +164,8 @@ export async function streamTurn(
     for (const chunk of chunks) {
       const line = chunk.trim();
       if (!line.startsWith("data:")) continue;
-      const evt = JSON.parse(line.slice(5).trim());
+      let evt: any;
+      try { evt = JSON.parse(line.slice(5).trim()); } catch { continue; }  // skip a malformed frame; keep the stream alive
       if (evt.type === "delta") ev.onDelta?.(evt.text);
       else if (evt.type === "done") ev.onDone?.(evt.message);
       else if (evt.type === "score") ev.onScore?.(evt);
