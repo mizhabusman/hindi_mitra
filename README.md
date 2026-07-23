@@ -26,7 +26,7 @@ backend/    FastAPI + async SQLAlchemy + Alembic
               - server-owned prompts (personas + scoring rubric, versioned)
               - Claude tiering: chat=Sonnet 5, scoring=Haiku 4.5, assess=Sonnet 5
               - all AI calls server-side; the API key is never exposed
-PostgreSQL  production DB (SQLite locally)
+MySQL       production DB (SQLite locally)
 ```
 
 Key properties: prompts and scoring live on the server; the chat endpoint never
@@ -107,7 +107,7 @@ Host-agnostic — runs anywhere that can run Python + serve static files
 
 - Backend: Python 3.11/3.12, start command
   `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, run `alembic upgrade head`
-  on release. Set `DATABASE_URL` (any managed PostgreSQL),
+  on release. Set `DATABASE_URL` (any managed MySQL 8+/MariaDB, utf8mb4),
   `ANTHROPIC_API_KEY`, `SECRET_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
   `COOKIE_SECURE=1`, `ENVIRONMENT=production`, and `CORS_ORIGINS` for the SPA
   origin.

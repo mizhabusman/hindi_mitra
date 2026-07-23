@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     admin_password: str = Field("", alias="ADMIN_PASSWORD")
 
     # ── Database ─────────────────────────────────────────────────────
-    # If DATABASE_URL is set → PostgreSQL (production). Otherwise a local
+    # If DATABASE_URL is set → MySQL (production). Otherwise a local
     # SQLite file is used for development and tests only.
     database_url: str = Field("", alias="DATABASE_URL")
 
@@ -101,14 +101,20 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Return an async-driver SQLAlchemy URL for the configured backend."""
+        """Return an async-driver SQLAlchemy URL for the configured backend.
+
+        Production uses MySQL via the async `asyncmy` driver, forced to utf8mb4 so
+        Hindi (Devanagari) text and emoji store correctly. Common URL forms
+        (mysql://, mysql+pymysql://, mysql+aiomysql://) are normalised to it.
+        """
         if self.database_url:
             url = self.database_url
-            # Normalise common Postgres URL forms to the asyncpg driver.
-            if url.startswith("postgres://"):
-                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-            elif url.startswith("postgresql://"):
-                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            for prefix in ("mysql://", "mysql+pymysql://", "mysql+aiomysql://"):
+                if url.startswith(prefix):
+                    url = "mysql+asyncmy://" + url[len(prefix):]
+                    break
+            if url.startswith("mysql+asyncmy://") and "charset=" not in url:
+                url += ("&" if "?" in url else "?") + "charset=utf8mb4"
             return url
         # Local development fallback: SQLite file next to the backend (or an
         # override, used by tests).
@@ -116,7 +122,8 @@ class Settings(BaseSettings):
         return f"sqlite+aiosqlite:///{path}"
 
     @property
-    def uses_postgres(self) -> bool:
+    def uses_server_db(self) -> bool:
+        """True when a managed server DB (MySQL) is configured; False = local SQLite."""
         return bool(self.database_url)
 
     def effective_secret_key(self) -> str:

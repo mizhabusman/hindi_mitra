@@ -10,7 +10,8 @@ python-dotenv>=1.0.1
 # ── Database (async) ─────────────────────────────────────────────────
 sqlalchemy[asyncio]>=2.0.35
 alembic>=1.13.0
-asyncpg>=0.29.0          # PostgreSQL driver (production)
+asyncmy>=0.2.9           # MySQL driver (async, production)
+cryptography>=42.0.0     # required by MySQL 8 caching_sha2_password auth
 aiosqlite>=0.20.0        # SQLite driver (local dev / tests)
 greenlet>=3.0.0          # required by SQLAlchemy async
 
