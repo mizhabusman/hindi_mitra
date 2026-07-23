@@ -101,7 +101,7 @@ class Conversation(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     persona_id: Mapped[int] = mapped_column(
-        ForeignKey("personas.id", ondelete="RESTRICT"), nullable=False
+        ForeignKey("personas.id", ondelete="NO ACTION"), nullable=False
     )
     status: Mapped[ConversationStatus] = mapped_column(
         Enum(ConversationStatus, native_enum=False, length=20),

@@ -20,8 +20,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
     # Audit log — never read or written.
     op.drop_table("audit_log")
+    # SQL Server refuses to drop a column while a foreign key references it, and
+    # the FK has an auto-generated name — so look it up by column and drop it
+    # first. Other dialects (SQLite/etc.) resolve this inside the batch below.
+    if bind.dialect.name == "mssql":
+        op.execute(
+            "DECLARE @fk sysname; "
+            "SELECT @fk = fk.name FROM sys.foreign_keys fk "
+            "JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id "
+            "WHERE fk.parent_object_id = OBJECT_ID('users') "
+            "AND COL_NAME(fkc.parent_object_id, fkc.parent_column_id) = 'team_id'; "
+            "IF @fk IS NOT NULL EXEC('ALTER TABLE users DROP CONSTRAINT ' + @fk);"
+        )
     # Remove the users -> teams link, then the teams table itself.
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.drop_column("team_id")

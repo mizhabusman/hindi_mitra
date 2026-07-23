@@ -116,7 +116,11 @@ class Settings(BaseSettings):
                 if url.startswith(prefix):
                     url = "mssql+aioodbc://" + url[len(prefix):]
                     break
-            if url.startswith("mssql+aioodbc://") and "driver=" not in url.lower():
+            if (
+                url.startswith("mssql+aioodbc://")
+                and "driver=" not in url.lower()
+                and "odbc_connect=" not in url.lower()  # full ODBC string supplied verbatim
+            ):
                 url += ("&" if "?" in url else "?") + "driver=ODBC+Driver+18+for+SQL+Server"
             return url
         # Local development fallback: SQLite file next to the backend (or an

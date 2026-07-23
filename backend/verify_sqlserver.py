@@ -75,10 +75,10 @@ async def main() -> None:
     await run_bootstrap()
     async with SessionLocal() as db:
         personas = list((await db.execute(select(Persona))).scalars().all())
-        hindi = [p for p in personas if _devanagari(p.label)]
+        hindi = [p for p in personas if _devanagari(p.system_prompt)]
         emoji = [p for p in personas if (p.emoji or "")]
         print(("[OK]  " if personas else "[FAIL] ") + f"bootstrap seeded {len(personas)} personas")
-        print(("[OK]  " if hindi else "[FAIL] ") + f"Devanagari label round-trip, e.g. {hindi[0].label if hindi else '(none)'}")
+        print(("[OK]  " if hindi else "[FAIL] ") + f"Devanagari (Hindi) round-trip in {len(hindi)}/{len(personas)} persona prompts")
         print(("[OK]  " if emoji else "[FAIL] ") + f"emoji round-trip, e.g. {emoji[0].emoji if emoji else '(none)'}")
         ok &= bool(personas) and bool(hindi)
 
