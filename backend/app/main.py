@@ -28,7 +28,7 @@ settings = get_settings()
 async def lifespan(_: FastAPI):
     # Schema is managed by Alembic migrations, not create_all. Bootstrap only
     # seeds data (personas + admin) that migrations don't own.
-    logger.info("Starting Hindi Mitra (env=%s, postgres=%s)", settings.environment, settings.uses_postgres)
+    logger.info("Starting Hindi Mitra (env=%s, db=%s)", settings.environment, "azure-sql" if settings.uses_server_db else "sqlite")
     await run_bootstrap()
     yield
 

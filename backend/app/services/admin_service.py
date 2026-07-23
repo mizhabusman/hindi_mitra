@@ -160,7 +160,7 @@ async def compute_user_metrics(
     # Display order: most recently active first; never-active users fall to the
     # bottom, alphabetical among themselves (the dict keeps the query's username
     # order and Python's sort is stable). `.timestamp()` sidesteps naive/aware
-    # datetime comparison differences between the SQLite and Postgres backends.
+    # datetime comparison differences between the SQLite and Azure SQL backends.
     ordered = list(metrics.values())
     ordered.sort(
         key=lambda m: (

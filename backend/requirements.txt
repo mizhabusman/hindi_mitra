@@ -10,7 +10,8 @@ python-dotenv>=1.0.1
 # ── Database (async) ─────────────────────────────────────────────────
 sqlalchemy[asyncio]>=2.0.35
 alembic>=1.13.0
-asyncpg>=0.29.0          # PostgreSQL driver (production)
+aioodbc>=0.5.0           # Azure SQL / SQL Server async driver (production)
+pyodbc>=5.1.0            # ODBC layer for aioodbc (needs MS ODBC Driver 18)
 aiosqlite>=0.20.0        # SQLite driver (local dev / tests)
 greenlet>=3.0.0          # required by SQLAlchemy async
 

@@ -19,12 +19,12 @@ from app.config import get_settings
 
 _settings = get_settings()
 
-# SQLite needs no pool tuning; Postgres benefits from pre-ping to survive
+# SQLite needs no pool tuning; Azure SQL benefits from pre-ping to survive
 # dropped connections on managed cloud databases. A single streamed turn
 # writes from two concurrent sessions (assistant message + live score) — on
 # SQLite we give the writer a generous busy timeout so they never contend.
 _engine_kwargs: dict = {"echo": _settings.debug, "future": True}
-if _settings.uses_postgres:
+if _settings.uses_server_db:
     _engine_kwargs.update(pool_pre_ping=True, pool_size=10, max_overflow=20)
 else:
     _engine_kwargs["connect_args"] = {"timeout": 30}

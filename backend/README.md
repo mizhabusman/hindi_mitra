@@ -37,7 +37,7 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Open http://localhost:8000/docs for the interactive API.
-Local dev uses a SQLite file; set `DATABASE_URL` for PostgreSQL.
+Local dev uses a SQLite file; set `DATABASE_URL` for Azure SQL (UTF-8 collation) in production.
 
 ## Migrations
 

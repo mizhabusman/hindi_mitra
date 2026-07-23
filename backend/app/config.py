@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     admin_password: str = Field("", alias="ADMIN_PASSWORD")
 
     # ── Database ─────────────────────────────────────────────────────
-    # If DATABASE_URL is set → PostgreSQL (production). Otherwise a local
+    # If DATABASE_URL is set → Azure SQL Database (production). Otherwise a local
     # SQLite file is used for development and tests only.
     database_url: str = Field("", alias="DATABASE_URL")
 
@@ -101,14 +101,23 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Return an async-driver SQLAlchemy URL for the configured backend."""
+        """Return an async-driver SQLAlchemy URL for the configured backend.
+
+        Production is Azure SQL Database via the async `aioodbc` driver (ODBC
+        Driver 18 for SQL Server). Bare `mssql://` / `sqlserver://` / sync
+        `mssql+pyodbc://` forms are normalised to it, and the ODBC driver name is
+        appended if the URL doesn't already carry one. Hindi + emoji are stored
+        correctly by creating the database with a UTF-8 collation
+        (Latin1_General_100_CI_AS_SC_UTF8) — see backend/.env.example.
+        """
         if self.database_url:
             url = self.database_url
-            # Normalise common Postgres URL forms to the asyncpg driver.
-            if url.startswith("postgres://"):
-                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-            elif url.startswith("postgresql://"):
-                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            for prefix in ("mssql://", "sqlserver://", "mssql+pyodbc://"):
+                if url.startswith(prefix):
+                    url = "mssql+aioodbc://" + url[len(prefix):]
+                    break
+            if url.startswith("mssql+aioodbc://") and "driver=" not in url.lower():
+                url += ("&" if "?" in url else "?") + "driver=ODBC+Driver+18+for+SQL+Server"
             return url
         # Local development fallback: SQLite file next to the backend (or an
         # override, used by tests).
@@ -116,7 +125,8 @@ class Settings(BaseSettings):
         return f"sqlite+aiosqlite:///{path}"
 
     @property
-    def uses_postgres(self) -> bool:
+    def uses_server_db(self) -> bool:
+        """True when a managed server DB (Azure SQL) is configured; False = SQLite."""
         return bool(self.database_url)
 
     def effective_secret_key(self) -> str:
