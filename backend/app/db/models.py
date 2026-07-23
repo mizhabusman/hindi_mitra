@@ -22,10 +22,12 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,12 +54,21 @@ class MessageRole(str, enum.Enum):
 # ── Users ────────────────────────────────────────────────────────────
 class User(Base, TimestampMixin):
     __tablename__ = "users"
+    # employee_id is unique among real employees, but the admin's is NULL. SQL
+    # Server allows only ONE NULL in a unique index, so the index is filtered
+    # there (a harmless no-op on Postgres/SQLite, which permit multiple NULLs).
+    __table_args__ = (
+        Index(
+            "ix_users_employee_id", "employee_id", unique=True,
+            mssql_where=text("employee_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Human-facing unique identifier (e.g. "EMP0007"), auto-assigned on creation
     # and backfilled for existing rows. Nullable only so the row can be inserted
     # before the id-derived value is set; every persisted user has one.
-    employee_id: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
+    employee_id: Mapped[str | None] = mapped_column(String(20))
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False, index=True)
     display_name: Mapped[str | None] = mapped_column(String(150))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

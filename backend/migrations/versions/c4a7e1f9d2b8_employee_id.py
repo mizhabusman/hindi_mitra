@@ -44,8 +44,14 @@ def upgrade() -> None:
             {"eid": _employee_id(uid), "id": uid},
         )
 
-    # 3) Enforce uniqueness (matches the model's unique+index column).
-    op.create_index(op.f("ix_users_employee_id"), "users", ["employee_id"], unique=True)
+    # 3) Enforce uniqueness. Filtered on SQL Server so the admin's NULL
+    #    employee_id doesn't collide — SQL Server permits only ONE NULL in a
+    #    unique index, whereas Postgres/SQLite allow many (there the filter is a
+    #    harmless no-op).
+    op.create_index(
+        op.f("ix_users_employee_id"), "users", ["employee_id"], unique=True,
+        mssql_where=sa.text("employee_id IS NOT NULL"),
+    )
 
 
 def downgrade() -> None:
