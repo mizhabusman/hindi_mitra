@@ -87,7 +87,7 @@ async def list_active_employees(db: AsyncSession) -> list[User]:
     """Active employees, for the login dropdown (name only exposed by the API)."""
     result = await db.execute(
         select(User)
-        .where(User.role == UserRole.employee, User.is_active.is_(True))
+        .where(User.role == UserRole.employee, User.is_active)
         .order_by(User.display_name, User.username)
     )
     return list(result.scalars().all())
@@ -96,7 +96,7 @@ async def list_active_employees(db: AsyncSession) -> list[User]:
 async def authenticate_admin(db: AsyncSession, password: str) -> User | None:
     """Password-only admin login: match the password against any active admin."""
     result = await db.execute(
-        select(User).where(User.role == UserRole.admin, User.is_active.is_(True))
+        select(User).where(User.role == UserRole.admin, User.is_active)
     )
     for user in result.scalars().all():
         if verify_password(password, user.password_hash):
