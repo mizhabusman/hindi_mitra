@@ -58,7 +58,7 @@ hindibol-py/
 - **Azure AI Speech:** fully built but **dormant** — set `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` in `.env` to activate reliable Hindi STT + neural TTS + phoneme pronunciation scoring. (User deferred to future.) Broker at `/api/speech/{config,token}`; frontend `src/speech/azure.ts` + `hooks/useSpeech.ts`.
 
 ## Deploy
-- Host-agnostic (no Azure hosting). Any Python host + any managed MySQL 8+/MariaDB (database created as **utf8mb4** for Hindi + emoji). Prod env: `DATABASE_URL` (`mysql://user:pass@host:3306/db`), `SECRET_KEY`, `COOKIE_SECURE=1`, `ENVIRONMENT=production`, `CORS_ORIGINS`, `ANTHROPIC_API_KEY`, `ADMIN_USERNAME/PASSWORD`. Run `alembic upgrade head` on release; serve `frontend/dist/` from any static host on the same origin (reverse-proxy `/api`).
+- Host-agnostic (no Azure hosting). Any Python host + any managed PostgreSQL. Prod env: `DATABASE_URL`, `SECRET_KEY`, `COOKIE_SECURE=1`, `ENVIRONMENT=production`, `CORS_ORIGINS`, `ANTHROPIC_API_KEY`, `ADMIN_USERNAME/PASSWORD`. Run `alembic upgrade head` on release; serve `frontend/dist/` from any static host.
 
 ## Gotchas when verifying in the browser (Claude_Preview MCP)
 - `preview_click` is flaky on some React buttons/inputs → drive via `preview_eval` (native `.click()` + React value-setter + `input` event).
