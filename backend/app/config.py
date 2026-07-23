@@ -109,11 +109,16 @@ class Settings(BaseSettings):
         """
         if self.database_url:
             url = self.database_url
-            for prefix in ("mysql://", "mysql+pymysql://", "mysql+aiomysql://"):
+            # Bare or sync MySQL URLs default to the async asyncmy driver
+            # (production). An explicitly async driver (mysql+asyncmy / mysql+
+            # aiomysql) is respected as-is — handy for local testing on a Python
+            # build that has no asyncmy wheel yet (use aiomysql there).
+            for prefix in ("mysql://", "mysql+pymysql://", "mysql+mysqldb://"):
                 if url.startswith(prefix):
                     url = "mysql+asyncmy://" + url[len(prefix):]
                     break
-            if url.startswith("mysql+asyncmy://") and "charset=" not in url:
+            # Force utf8mb4 on any MySQL connection so Hindi + emoji store correctly.
+            if url.startswith("mysql+") and "charset=" not in url:
                 url += ("&" if "?" in url else "?") + "charset=utf8mb4"
             return url
         # Local development fallback: SQLite file next to the backend (or an
