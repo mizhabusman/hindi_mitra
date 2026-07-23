@@ -264,7 +264,7 @@ select { cursor: pointer; }
 .topUser { display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 5px; }
 
 /* profile menu (admin identity + sign out) */
-.profileMenu { position: relative; }
+.profileMenu { position: relative; display: inline-block; }
 .profileTrigger { display: inline-flex; align-items: center; gap: 9px; padding: 5px 10px 5px 6px; border-radius: 999px;
   border: 1px solid var(--border-2); background: var(--surface); cursor: pointer; transition: border-color var(--t), box-shadow var(--t); }
 .profileTrigger:hover { border-color: var(--accent); }
@@ -277,10 +277,9 @@ select { cursor: pointer; }
 .profileRole { font-size: 11px; color: var(--muted); }
 .profileChevron { color: var(--muted); flex: none; transition: transform var(--t); }
 .profileChevron[data-open="true"] { transform: rotate(180deg); }
-.profilePop { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; min-width: 224px;
+.profilePop { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; right: 0;
   background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: var(--sh-lg);
-  padding: 12px; animation: fadeUp 0.15s ease both; }
-.profilePopHead { display: flex; align-items: center; gap: 11px; padding-bottom: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  padding: 8px; animation: fadeUp 0.15s ease both; }
 .profilePop .menuItem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; background: none;
   border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; text-align: left; }
 .profilePop .menuItem:hover { background: var(--surface-2); color: var(--ink); }

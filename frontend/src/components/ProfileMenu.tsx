@@ -33,13 +33,6 @@ export default function ProfileMenu() {
       </button>
       {open && (
         <div className="profilePop" role="menu">
-          <div className="profilePopHead">
-            <span className="profileAvatar lg"><User size={18} /></span>
-            <span className="profileId">
-              <span className="profileName">{name}</span>
-              <span className="profileRole">Administrator</span>
-            </span>
-          </div>
           <button className="menuItem" onClick={() => { setOpen(false); setModal("name"); }}>
             <UserCog /> Change name
           </button>
