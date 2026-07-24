@@ -1,8 +1,12 @@
 <!doctype html>
-<html lang="hi">
+<html lang="hi" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Disable browser auto-translation. This is a Hindi-learning app: the Hindi
+         IS the material (translating it defeats the purpose), and Chrome's
+         "Translate this page" rewrites the DOM under React and crashes the SPA. -->
+    <meta name="google" content="notranslate" />
     <!-- App logo in the browser tab (the gradient voice-wave brand mark). -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
