@@ -277,9 +277,10 @@ select { cursor: pointer; }
 .profileRole { font-size: 11px; color: var(--muted); }
 .profileChevron { color: var(--muted); flex: none; transition: transform var(--t); }
 .profileChevron[data-open="true"] { transform: rotate(180deg); }
-.profilePop { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; right: 0;
+.profilePop { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; min-width: 200px;
   background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: var(--sh-lg);
   padding: 8px; animation: fadeUp 0.15s ease both; }
+.profilePop .menuItem { white-space: nowrap; }
 .profilePop .menuItem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; background: none;
   border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; text-align: left; }
 .profilePop .menuItem:hover { background: var(--surface-2); color: var(--ink); }
